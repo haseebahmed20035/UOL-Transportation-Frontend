@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "967891107317",
+    "project_id": "uol-transport-app",
+    "storage_bucket": "uol-transport-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:967891107317:android:7f2bcf732f4b15365ab4bc",
+        "android_client_info": {
+          "package_name": "com.uoltransportation"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "967891107317-9e7f7vi1ebbsves23btaman66hnfo049.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.uoltransportation",
+            "certificate_hash": "cf73a80b972268c1ac50fe1a5ec59e3cc1874b0b"
+          }
+        },
+        {
+          "client_id": "967891107317-2nje8fbbcq60u2l5bpq668brt1qrapol.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDl3_Bie3eN7LAUGu0QuGOJslgRtFUsrs4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "967891107317-2nje8fbbcq60u2l5bpq668brt1qrapol.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
