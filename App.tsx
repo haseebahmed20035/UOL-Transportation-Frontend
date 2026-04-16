@@ -3,7 +3,7 @@ import React from 'react'
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './src/Screens/LoginScreen'
-import MainScreen from './src/Screens/MainScreen'
+import StudentDashboard from './src/Screens/StudentDashboard'
 import MyRoute from './src/Screens/MyRoute'
 import AllRoutes from './src/Screens/AllRoutes'
 import BusSchedule from './src/Screens/BusSchedule'
@@ -16,6 +16,8 @@ import MyArrivalRoute from './src/Screens/MyArrivalRoute'
 import MyDepartureRoute from './src/Screens/MyDepartureRoute'
 import Chatbot from './src/Screens/Chatbot'
 import MyPersonalInfo from './src/Screens/MyPersonalInfo'
+import AdminDashboard from './src/Screens/AdminDashboard'
+import DriverDashboard from './src/Screens/DriverDashboard'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AppSettings from './src/Screens/AppSettings'
 import FeeVoucher from './src/Screens/FeeVoucher'
@@ -32,7 +34,7 @@ function BottomTabs() {
   headerShown:false,
   tabBarIcon: ({color, size}) => {
 
-    let iconName;
+    let iconName = "home";
 
     if(route.name === "Home"){
       iconName = "home";
@@ -45,7 +47,7 @@ function BottomTabs() {
   }
 })}
 >
-      <Tab.Screen name="Home" component={MainScreen} />
+      <Tab.Screen name="Home" component={StudentDashboard} />
       <Tab.Screen name="Chatbot" component={Chatbot} />
     </Tab.Navigator>
   );
@@ -73,6 +75,8 @@ const App = () => {
         <Stack.Screen name="AppSettings" component={AppSettings} />
         <Stack.Screen name="FeeVoucher" component={FeeVoucher} />
         <Stack.Screen name="Help" component={Help} />
+        <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
+        <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

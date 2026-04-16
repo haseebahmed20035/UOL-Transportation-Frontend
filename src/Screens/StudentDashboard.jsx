@@ -14,7 +14,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeContext } from '../context/ThemeContext';
 
-const MainScreen = ({ navigation }) => {
+const StudentDashboard = ({ navigation }) => {
 
   const { theme } = useContext(ThemeContext);
 
@@ -485,7 +485,7 @@ const MainScreen = ({ navigation }) => {
   );
 };
 
-export default MainScreen;
+export default StudentDashboard;
 
 const styles = StyleSheet.create({
   container: {

@@ -6,14 +6,17 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+const BASE_URL = "http://192.168.8.22:5000/api"; // 🔥 your IP
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     GoogleSignin.configure({
@@ -21,56 +24,138 @@ const LoginScreen = ({ navigation }) => {
         '967891107317-2nje8fbbcq60u2l5bpq668brt1qrapol.apps.googleusercontent.com',
     });
   }, []);
-  const handleAdminLogin = () => {
-    if (username !== 'admin') {
-      Alert.alert('Error', 'Admin not found');
-      return;
-    }
+const getAlertMessage = (value, fallback = "Something went wrong") => {
+  if (typeof value === "string") return value;
 
-    if (password !== '1') {
-      Alert.alert('Error', 'Incorrect Password');
-      return;
-    }
+  if (Array.isArray(value)) {
+    return value.map(item => {
+      if (typeof item === "string") return item;
+      return JSON.stringify(item);
+    }).join("\n");
+  }
 
-    navigation.replace('Tabs');
-  };
+  if (value && typeof value === "object") {
+    if (typeof value.message === "string") return value.message;
+    if (typeof value.error === "string") return value.error;
+    if (typeof value.msg === "string") return value.msg;
 
-  const handleGoogleLogin = async () => {
+    return JSON.stringify(value, null, 2);
+  }
+
+  return fallback;
+};
+  // ================= ADMIN LOGIN =================
+  const handleAdminLogin = async () => {
+  if (!username || !password) {
+    Alert.alert("Error", "Please enter username and password");
+    return;
+  }
+
   try {
-    await GoogleSignin.hasPlayServices();
+    setLoading(true);
 
-    // Sign in ONLY ONCE
-    const { idToken } = await GoogleSignin.signIn();
+    const response = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: username.trim(),
+        password: password.trim(),
+      }),
+    });
 
-    if (!idToken) {
-      throw new Error('No ID token received');
+    const data = await response.json();
+
+    console.log("ADMIN LOGIN RESPONSE:", JSON.stringify(data, null, 2));
+
+    if (data.success) {
+      const role = data.user?.role;
+
+if (role === "admin") {
+  navigation.replace("AdminDashboard");
+} else if (role === "student") {
+  navigation.replace("Tabs");
+} else if (role === "driver") {
+  navigation.replace("DriverDashboard");
+} else {
+  Alert.alert("Error", "Unknown role");
+}
+    } else {
+      Alert.alert(
+        "Login Failed",
+        getAlertMessage(data.message, "Invalid credentials")
+      );
     }
-
-    const googleCredential =
-      auth.GoogleAuthProvider.credential(idToken);
-
-    const userCredential = await auth().signInWithCredential(
-      googleCredential,
-    );
-
-    const email = userCredential.user.email;
-
-    // University email check
-    if (!email.endsWith('@uol.edu.pk')) {
-      Alert.alert('Only University Email Allowed');
-      await auth().signOut();
-      await GoogleSignin.signOut();
-      return;
-    }
-
-    navigation.replace('Tabs');
-
   } catch (error) {
-    console.log('Google Error:', error);
-    Alert.alert('Google Sign-In Failed', error.message);
+    console.log("ADMIN ERROR:", error);
+
+    Alert.alert(
+      "Error",
+      getAlertMessage(error?.message || error, "Something went wrong")
+    );
+  } finally {
+    setLoading(false);
   }
 };
 
+  // ================= GOOGLE LOGIN =================
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+
+      await GoogleSignin.hasPlayServices();
+
+      const userInfo = await GoogleSignin.signIn();
+
+      const email = userInfo.user.email;
+
+      console.log("Google Email:", email);
+
+      // 🔥 SEND TO BACKEND
+      const response = await fetch(`${BASE_URL}/auth/google-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      console.log("GOOGLE LOGIN RESPONSE:", data);
+
+      if (data.success) {
+        const role = data.user.role;
+
+        if (role === "student") {
+          navigation.replace("Tabs");
+        } else if (role === "driver") {
+          navigation.replace("DriverDashboard");
+        } else if (role === "admin") {
+          navigation.replace("AdminDashboard");
+        } else {
+          Alert.alert("Error", "Unknown role");
+        }
+      } else {
+        Alert.alert("Login Failed", getAlertMessage(data.message, "User not found"));
+      }
+
+    } catch (error) {
+      console.log("GOOGLE ERROR:", error);
+
+      Alert.alert(
+        "Google Sign-In Failed",
+        typeof error?.message === "string"
+          ? error.message
+          : JSON.stringify(error)
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ================= UI =================
   return (
     <View style={{ padding: 27 }}>
       <View style={styles.Body}>
@@ -81,13 +166,14 @@ const LoginScreen = ({ navigation }) => {
 
         <Text style={styles.mainHeading}>UOL Transportation App</Text>
         <Text style={styles.subHeading}>
-          Enter your details to log in your account
+          Enter admin details OR use Google login
         </Text>
 
+        {/* ADMIN LOGIN */}
         <View style={{ gap: 12, paddingHorizontal: 10 }}>
           <View style={styles.textBox}>
             <TextInput
-              placeholder="Admin Username"
+              placeholder="Admin Email"
               value={username}
               onChangeText={setUsername}
             />
@@ -95,44 +181,36 @@ const LoginScreen = ({ navigation }) => {
 
           <View style={styles.textBox}>
             <TextInput
-              placeholder="Admin Password"
+              placeholder="Password"
               secureTextEntry
               value={password}
               onChangeText={setPassword}
+              style={{ color: "black" }}
             />
           </View>
+          
         </View>
 
-        <TouchableOpacity>
-          <Text style={styles.forgotText}>Forgot your password?</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.LoginBtn} onPress={handleAdminLogin}>
-          <Text style={styles.LoginBtnText}>Admin Login</Text>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.LoginBtnText}>Login</Text>
+          )}
         </TouchableOpacity>
 
-        <Text
-          style={{
-            marginTop: 35,
-            alignSelf: 'center',
-            marginBottom: 30,
-          }}
-        >
-          Or login using university account
+        {/* GOOGLE LOGIN */}
+        <Text style={{ marginTop: 35, alignSelf: 'center' }}>
+          OR
         </Text>
 
-        {/* GOOGLE LOGIN BUTTON */}
-        <TouchableOpacity onPress={handleGoogleLogin}>
-          <Image
-            source={require('../Images/google.png')}
-            style={{
-              resizeMode: 'contain',
-              alignSelf: 'center',
-              height: 25,
-              width: 25,
-            }}
-          />
+        <TouchableOpacity
+          style={[styles.LoginBtn, { backgroundColor: "#4285F4" }]}
+          onPress={handleGoogleLogin}
+        >
+          <Text style={styles.LoginBtnText}>Login with Google</Text>
         </TouchableOpacity>
+
       </View>
     </View>
   );
@@ -168,14 +246,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     paddingHorizontal: 10,
   },
-  forgotText: {
-    fontSize: 12,
-    marginTop: 15,
-    color: 'blue',
-    fontWeight: '500',
-    alignSelf: 'flex-end',
-    marginRight: 10,
-  },
   LoginBtn: {
     marginTop: 20,
     backgroundColor: '#113d1eef',
@@ -189,6 +259,6 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     fontWeight: 'bold',
-    fontSize: 20,
+    fontSize: 18,
   },
 });
