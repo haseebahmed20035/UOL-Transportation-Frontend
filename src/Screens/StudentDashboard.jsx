@@ -55,9 +55,6 @@ const StudentDashboard = ({ navigation }) => {
     >
       {/* HEADER */}
      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
-        <TouchableOpacity>
-          <Icon name="menu" size={28} color="#ffffff" />
-        </TouchableOpacity>
 
         <View style={styles.headerCenter}>
           <Image source={require('../Images/uol.png')} style={styles.logo} />

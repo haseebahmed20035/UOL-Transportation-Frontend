@@ -22,6 +22,23 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AppSettings from './src/Screens/AppSettings'
 import FeeVoucher from './src/Screens/FeeVoucher'
 import Help from './src/Screens/Help'
+import StudentManage from './src/Screens/StudentManage'
+import ManageDrivers from './src/Screens/ManageDrivers'
+import AllLiveTracking from './src/Screens/AllLiveTracking'
+import AssignRoutes from './src/Screens/AssignRoutes'
+import AllSchedule from './src/Screens/AllSchedule'
+import ManageBuses from './src/Screens/ManageBuses'
+import ManageRoutes from './src/Screens/ManageRoutes'
+import SendNotification from './src/Screens/SendNotification'
+import ManageRequests from './src/Screens/ManageRequests'
+import AddBus from './src/Screens/AddBus'
+import DeleteBus from './src/Screens/DeleteBus'
+import UpdateBus from './src/Screens/UpdateBus'
+import ViewBus from './src/Screens/ViewBus'
+import ViewRoutes from './src/Screens/ViewRoutes'
+import AddRoutes from './src/Screens/AddRoutes'
+import UpdateRoutes from './src/Screens/UpdateRoutes'
+import DeleteRoutes from './src/Screens/DeleteRoutes'
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
 
@@ -58,7 +75,7 @@ const App = () => {
     <View style={{ flex: 1 }}>
       <ThemeProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+        <Stack.Navigator initialRouteName="AdminDashboard" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Tabs" component={BottomTabs} />
         <Stack.Screen name="MyRoute" component={MyRoute} />
@@ -77,6 +94,23 @@ const App = () => {
         <Stack.Screen name="Help" component={Help} />
         <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
         <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+        <Stack.Screen name="StudentManage" component={StudentManage} />
+        <Stack.Screen name="AllLiveTracking" component={AllLiveTracking} />
+        <Stack.Screen name="AllSchedule" component={AllSchedule} />
+        <Stack.Screen name="AssignRoutes" component={AssignRoutes} />
+        <Stack.Screen name="ManageBuses" component={ManageBuses} />
+        <Stack.Screen name="ManageDrivers" component={ManageDrivers} />
+        <Stack.Screen name="ManageRequests" component={ManageRequests} />
+        <Stack.Screen name="ManageRoutes" component={ManageRoutes} />
+        <Stack.Screen name="SendNotification" component={SendNotification} />
+        <Stack.Screen name="AddBus" component={AddBus} />
+        <Stack.Screen name="DeleteBus" component={DeleteBus} />
+        <Stack.Screen name="UpdateBus" component={UpdateBus} />
+        <Stack.Screen name="ViewBus" component={ViewBus} />
+        <Stack.Screen name="ViewRoutes" component={ViewRoutes} />
+        <Stack.Screen name="AddRoutes" component={AddRoutes} />
+        <Stack.Screen name="UpdateRoutes" component={UpdateRoutes} />
+        <Stack.Screen name="DeleteRoutes" component={DeleteRoutes} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

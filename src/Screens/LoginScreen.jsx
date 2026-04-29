@@ -11,7 +11,7 @@ import {
 import React, { useState, useEffect } from 'react';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
-const BASE_URL = "http://192.168.8.22:5000/api"; // 🔥 your IP
+const BASE_URL = "http://192.168.100.100:5000/api"; // 🔥 your IP
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
