@@ -12,13 +12,14 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { ThemeContext } from '../context/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useEffect } from 'react';
 
 const GOOGLE_API_KEY = 'AIzaSyBG_tfwPfE3Bnn2-8CwNTOZuPd1c0Yr0Wc';
 
 const AddRoutes = ({ navigation }) => {
   const mapRef = useRef(null);
   const { theme } = useContext(ThemeContext);
-
+  const [routeName, setRouteName] = useState('');
   const [source, setSource] = useState('');
   const [destination, setDestination] = useState('');
   const [time, setTime] = useState('');
@@ -29,48 +30,46 @@ const AddRoutes = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   // 🔥 MAP CLICK
-const handleMapPress = async (e) => {
-  const { latitude, longitude } = e.nativeEvent.coordinate;
+  const handleMapPress = async e => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
 
-  try {
-    const res = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}`
-    );
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}`,
+      );
 
-    const data = await res.json();
-    const address =
-      data.results[0]?.formatted_address || "Unknown Location";
+      const data = await res.json();
+      const address = data.results[0]?.formatted_address || 'Unknown Location';
 
-    const newStop = {
-      stop_name: address,
-      latitude,
-      longitude,
-    };
+      const newStop = {
+        stop_name: address,
+        latitude,
+        longitude,
+      };
 
-    // ❗ prevent duplicate
-    const exists = stops.some(
-      s => s.latitude === latitude && s.longitude === longitude
-    );
+      // ❗ prevent duplicate
+      const exists = stops.some(
+        s => s.latitude === latitude && s.longitude === longitude,
+      );
 
-    if (exists) {
-      Alert.alert("Already added");
-      return;
+      if (exists) {
+        Alert.alert('Already added');
+        return;
+      }
+
+      setStops(prev => [...prev, newStop]);
+
+      // optional: move camera
+      mapRef.current?.animateToRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    } catch (err) {
+      console.log(err);
     }
-
-    setStops(prev => [...prev, newStop]);
-
-    // optional: move camera
-    mapRef.current?.animateToRegion({
-      latitude,
-      longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    });
-
-  } catch (err) {
-    console.log(err);
-  }
-};
+  };
 
   // 🔥 ADD STOP
   const handleAddStop = () => {
@@ -112,6 +111,7 @@ const handleMapPress = async (e) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          route_name: routeName,
           source,
           destination,
           estimated_time: time,
@@ -123,7 +123,7 @@ const handleMapPress = async (e) => {
 
       if (res.ok) {
         Alert.alert('Success', data.message);
-
+        setRouteName('');
         setSource('');
         setDestination('');
         setTime('');
@@ -137,6 +137,57 @@ const handleMapPress = async (e) => {
 
     setLoading(false);
   };
+  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // km
+  };
+  const calculateEstimatedTime = () => {
+    if (stops.length < 2) return;
+
+    let totalDistance = 0;
+
+    for (let i = 0; i < stops.length - 1; i++) {
+      const s1 = stops[i];
+      const s2 = stops[i + 1];
+
+      totalDistance += getDistanceInKm(
+        s1.latitude,
+        s1.longitude,
+        s2.latitude,
+        s2.longitude,
+      );
+    }
+
+    // 🚌 assume avg speed = 30 km/h (city traffic)
+    const travelTimeMinutes = (totalDistance / 30) * 60;
+
+    // ⏱️ stop delay (5 min each)
+    const stopDelay = (stops.length - 1) * 5;
+
+    const totalTime = Math.round(travelTimeMinutes + stopDelay);
+
+    setTime(`${totalTime} mins`);
+  };
+  useEffect(() => {
+    calculateEstimatedTime();
+  }, [stops]);
+
+  useEffect(() => {
+    if (stops.length > 0) {
+    }
+  }, [stops]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -153,6 +204,12 @@ const handleMapPress = async (e) => {
       <ScrollView contentContainerStyle={{ padding: 15 }}>
         {/* INPUTS */}
         <TextInput
+          placeholder="Route Name (e.g. UOL Morning Route)"
+          value={routeName}
+          onChangeText={setRouteName}
+          style={styles.input}
+        />
+        <TextInput
           placeholder="Source"
           value={source}
           onChangeText={setSource}
@@ -166,31 +223,61 @@ const handleMapPress = async (e) => {
           style={styles.input}
         />
 
+        {/* 🔥 ROUTE PREVIEW */}
+        {source && destination && (
+          <View style={styles.routePreview}>
+            <View style={styles.locationBox}>
+              <Icon name="location" size={16} color="#2ecc71" />
+              <Text style={styles.locationText}>{source}</Text>
+            </View>
+
+            <Icon
+              name="swap-horizontal-outline"
+              size={22}
+              color={theme.colors.primary}
+              style={{ marginHorizontal: 10 }}
+            />
+
+            <View style={styles.locationBox}>
+              <Icon name="flag-outline" size={16} color="#e74c3c" />
+              <Text style={styles.locationText}>{destination}</Text>
+            </View>
+          </View>
+        )}
+
         <TextInput
           placeholder="Estimated Time"
           value={time}
-          onChangeText={setTime}
-          style={styles.input}
+          editable={false} // 🔥 important
+          style={[styles.input, { backgroundColor: '#f1f3f6' }]}
         />
 
-        {/* 🔥 SEARCH BAR */}
+        {/* 🔥 SEARCH BAR
         <View style={styles.searchWrapper}>
           <GooglePlacesAutocomplete
-            placeholder="Search stops (e.g. Johar Town)"
+            placeholder="Search places"
             fetchDetails={true}
+            // keep these (prevent earlier crashes)
+            predefinedPlaces={[]}
+            textInputProps={{ onFocus: () => {}, onBlur: () => {} }}
+            listViewDisplayed="auto"
+            minLength={2}
+            debounce={400}
+            query={{
+              key: GOOGLE_API_KEY,
+              language: 'en',
+              types: 'geocode', // cities/areas + addresses
+            }}
             onPress={(data, details = null) => {
               if (!details) return;
 
-              const lat = details.geometry.location.lat;
-              const lng = details.geometry.location.lng;
+              const { lat, lng } = details.geometry.location;
 
-              const location = {
+              setSelectedLocation({
                 latitude: lat,
                 longitude: lng,
                 name: data.description,
-              };
-
-              setSelectedLocation(location);
+              });
 
               mapRef.current?.animateToRegion({
                 latitude: lat,
@@ -199,23 +286,18 @@ const handleMapPress = async (e) => {
                 longitudeDelta: 0.01,
               });
             }}
-            query={{
-              key: GOOGLE_API_KEY,
-              language: 'en',
-            }}
-            enablePoweredByContainer={false}
-            debounce={300}
             styles={{
               textInput: styles.searchInputModern,
               container: { flex: 0 },
               listView: styles.searchDropdown,
             }}
+            enablePoweredByContainer={false}
           />
 
           <View style={styles.searchIconModern}>
             <Icon name="search" size={18} color="#666" />
           </View>
-        </View>
+        </View> */}
 
         {/* MAP */}
         <Text style={styles.section}>Tap map to add stop</Text>
@@ -387,30 +469,53 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   searchWrapper: {
-  position: 'relative',
-  marginBottom: 12,
-  zIndex: 1000,
-},
+    position: 'relative',
+    marginBottom: 12,
+    zIndex: 1000,
+  },
 
-searchInputModern: {
-  backgroundColor: '#fff',
-  borderRadius: 18,
-  paddingLeft: 40,
-  height: 48,
-  fontSize: 14,
-  elevation: 5,
-},
+  searchInputModern: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingLeft: 40,
+    height: 48,
+    fontSize: 14,
+    elevation: 5,
+  },
 
-searchIconModern: {
-  position: 'absolute',
-  left: 12,
-  top: 14,
-},
+  searchIconModern: {
+    position: 'absolute',
+    left: 12,
+    top: 14,
+  },
 
-searchDropdown: {
-  backgroundColor: '#fff',
-  borderRadius: 12,
-  marginTop: 6,
-  elevation: 6,
-},
+  searchDropdown: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginTop: 6,
+    elevation: 6,
+  },
+  routePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 3,
+  },
+
+  locationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    maxWidth: '40%',
+  },
+
+  locationText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
 });

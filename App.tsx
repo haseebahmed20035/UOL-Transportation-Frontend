@@ -39,6 +39,7 @@ import ViewRoutes from './src/Screens/ViewRoutes'
 import AddRoutes from './src/Screens/AddRoutes'
 import UpdateRoutes from './src/Screens/UpdateRoutes'
 import DeleteRoutes from './src/Screens/DeleteRoutes'
+import BusList from './src/Screens/BusList'
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
 
@@ -111,6 +112,7 @@ const App = () => {
         <Stack.Screen name="AddRoutes" component={AddRoutes} />
         <Stack.Screen name="UpdateRoutes" component={UpdateRoutes} />
         <Stack.Screen name="DeleteRoutes" component={DeleteRoutes} />
+        <Stack.Screen name="BusList" component={BusList} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

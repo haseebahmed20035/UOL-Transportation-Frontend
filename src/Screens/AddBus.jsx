@@ -20,7 +20,7 @@ const AddBus = ({ navigation }) => {
   const hp = percentage => (height * percentage) / 100;
   const { theme } = useContext(ThemeContext);
 
-  const [capacity, setCapacity] = useState('');
+  const [capacity, setCapacity] = useState('30');
   const [routes, setRoutes] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [selectedRoute, setSelectedRoute] = useState(null);
@@ -107,15 +107,6 @@ const AddBus = ({ navigation }) => {
         contentContainerStyle={{ paddingBottom: hp(5) }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Capacity */}
-        <TextInput
-          placeholder="Bus Capacity"
-          placeholderTextColor="#888"
-          keyboardType="numeric"
-          value={capacity}
-          onChangeText={setCapacity}
-          style={[styles.input, { color: theme.colors.text }]}
-        />
 
         {/* DRIVER SELECTION */}
         <Text style={[styles.label, { color: theme.colors.text }]}>
@@ -167,7 +158,11 @@ const AddBus = ({ navigation }) => {
             ]}
             onPress={() => setSelectedRoute(item.id)}
           >
-            <Text style={{ color: theme.colors.text }}>
+            <Text style={{ fontWeight: 'bold', color: theme.colors.text }}>
+              {item.route_name}
+            </Text>
+
+            <Text style={{ color: theme.colors.text, marginTop: 4  }}>
               {item.source} → {item.destination}
             </Text>
 
@@ -180,7 +175,18 @@ const AddBus = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         ))}
-
+         {/* Capacity */}
+        <Text style={[styles.label, { color: theme.colors.text }]}>
+          Write Bus Capacty
+        </Text>
+        <TextInput
+          placeholder="Bus Capacity"
+          placeholderTextColor="#888"
+          keyboardType="numeric"
+          value={capacity}
+          onChangeText={setCapacity}
+          style={[styles.input, { color: theme.colors.text }]}
+        />
         {/* BUTTON */}
         <TouchableOpacity
           disabled={loading}

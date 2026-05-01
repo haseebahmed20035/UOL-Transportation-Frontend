@@ -36,15 +36,16 @@ const ViewRoutes = ({ navigation }) => {
   const getPolylineCoords = () => {
     if (!selectedRoute) return [];
 
-    return selectedRoute.stops.map((s) => ({
+    return selectedRoute.stops.map(s => ({
       latitude: parseFloat(s.latitude),
       longitude: parseFloat(s.longitude),
     }));
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -63,19 +64,41 @@ const ViewRoutes = ({ navigation }) => {
             No routes found
           </Text>
         ) : (
-          routes.map((route) => (
+          routes.map(route => (
             <TouchableOpacity
               key={route.id}
               style={styles.card}
               onPress={() => setSelectedRoute(route)}
             >
-              <Text style={styles.routeName}>
-                {route.source} → {route.destination}
-              </Text>
+              {/* ROUTE NAME */}
+              <Text style={styles.routeName}>🛣️ {route.route_name}</Text>
 
-              <View style={styles.row}>
-                <Text style={styles.meta}>🕒 {route.estimated_time}</Text>
-                <Text style={styles.meta}>📍 {route.stops.length} stops</Text>
+              {/* SOURCE → DESTINATION */}
+              <View style={styles.routeFlow}>
+                <View style={styles.locationBox}>
+                  <Icon name="location-outline" size={16} color="#2ecc71" />
+                  <Text style={styles.locationText}>{route.source}</Text>
+                </View>
+
+                <Icon name="swap-horizontal-outline" size={18} color="#999" />
+
+                <View style={styles.locationBox}>
+                  <Icon name="flag-outline" size={16} color="#e74c3c" />
+                  <Text style={styles.locationText}>{route.destination}</Text>
+                </View>
+              </View>
+
+              {/* META INFO */}
+              <View style={styles.metaRow}>
+                <View style={styles.chip}>
+                  <Text style={styles.chipText}>🕒 {route.estimated_time}</Text>
+                </View>
+
+                <View style={styles.chip}>
+                  <Text style={styles.chipText}>
+                    📍 {route.stops.length} Stops
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           ))
@@ -85,16 +108,28 @@ const ViewRoutes = ({ navigation }) => {
       {/* 🔥 MAP MODAL */}
       <Modal visible={!!selectedRoute} animationType="slide">
         <View style={{ flex: 1 }}>
-
           {/* HEADER */}
-          <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
+          <View
+            style={[styles.header, { backgroundColor: theme.colors.primary }]}
+          >
             <TouchableOpacity onPress={() => setSelectedRoute(null)}>
               <Icon name="arrow-back" size={26} color="#fff" />
             </TouchableOpacity>
 
-            <Text style={styles.headerText}>
-              {selectedRoute?.source} → {selectedRoute?.destination}
-            </Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                {selectedRoute?.route_name}
+              </Text>
+              <View style={{ flexDirection: 'row', gap:5, marginTop:5 }}>
+                <Text style={{ color: '#eee', fontSize: 12 }}>
+                  {selectedRoute?.source}
+                </Text>
+                <Icon name="swap-horizontal-outline" size={18} color="#999" />
+                <Text style={{ color: '#eee', fontSize: 12 }}>
+                  {selectedRoute?.destination}
+                </Text>
+              </View>
+            </View>
 
             <View style={{ width: 26 }} />
           </View>
@@ -129,10 +164,8 @@ const ViewRoutes = ({ navigation }) => {
               strokeColor={theme.colors.primary}
             />
           </MapView>
-
         </View>
       </Modal>
-
     </View>
   );
 };
@@ -177,6 +210,47 @@ const styles = StyleSheet.create({
 
   meta: {
     fontSize: 13,
+    color: '#555',
+  },
+  routeName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+
+  routeFlow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+
+  locationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: '40%',
+  },
+
+  locationText: {
+    fontSize: 13,
+    color: '#333',
+  },
+
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  chip: {
+    backgroundColor: '#f1f3f6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+
+  chipText: {
+    fontSize: 12,
     color: '#555',
   },
 });

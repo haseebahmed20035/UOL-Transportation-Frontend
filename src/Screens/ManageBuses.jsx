@@ -1,9 +1,4 @@
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React, { useContext } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeContext } from '../context/ThemeContext';
@@ -14,8 +9,8 @@ const ManageBuses = ({ navigation }) => {
   const menuItems = [
     {
       title: 'View Buses',
-      icon: 'add-circle-outline',
-      screen: 'ViewBus',
+      icon: 'eye',
+      screen: 'BusList',
     },
     {
       title: 'Add Bus',
@@ -36,18 +31,10 @@ const ManageBuses = ({ navigation }) => {
 
   return (
     <View
-      style={[
-        styles.container,
-        { backgroundColor: theme.colors.background },
-      ]}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       {/* HEADER */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: theme.colors.primary },
-        ]}
-      >
+      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={26} color="white" />
         </TouchableOpacity>
@@ -71,18 +58,9 @@ const ManageBuses = ({ navigation }) => {
             ]}
             onPress={() => navigation.navigate(item.screen)}
           >
-            <Icon
-              name={item.icon}
-              size={30}
-              color={theme.colors.icon}
-            />
+            <Icon name={item.icon} size={30} color={theme.colors.icon} />
 
-            <Text
-              style={[
-                styles.boxText,
-                { color: theme.colors.text },
-              ]}
-            >
+            <Text style={[styles.boxText, { color: theme.colors.text }]}>
               {item.title}
             </Text>
           </TouchableOpacity>
@@ -115,7 +93,7 @@ const styles = StyleSheet.create({
 
   content: {
     flexDirection: 'row',
-    flexWrap: 'wrap', 
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 30,

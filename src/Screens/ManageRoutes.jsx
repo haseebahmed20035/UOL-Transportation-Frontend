@@ -15,7 +15,7 @@ const ManageRoutes = ({ navigation }) => {
   const menuItems = [
     {
       title: 'View Routes',
-      icon: 'view-circle-outline',
+      icon: 'eye',
       screen: 'ViewRoutes',
     },
     {
@@ -44,7 +44,7 @@ const ManageRoutes = ({ navigation }) => {
           <Icon name="arrow-back" size={26} color="white" />
         </TouchableOpacity>
 
-        <Text style={styles.headerText}>Manage Buses</Text>
+        <Text style={styles.headerText}>Manage Routes</Text>
 
         <View style={{ width: 26 }} />
       </View>

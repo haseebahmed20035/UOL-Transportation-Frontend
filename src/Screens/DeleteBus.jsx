@@ -1,55 +1,68 @@
+import React, { useEffect, useState, useContext } from 'react';
 import {
   StyleSheet,
   Text,
-  View,
   TouchableOpacity,
-  Alert,
+  View,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
-import React, { useEffect, useState, useContext } from 'react';
-import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeContext } from '../context/ThemeContext';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 const DeleteBus = ({ navigation }) => {
   const { theme } = useContext(ThemeContext);
-  const [buses, setBuses] = useState([]);
 
-  const fetchBuses = () => {
-    fetch('http://192.168.100.100:5000/buses')
-      .then(res => res.json())
-      .then(data => setBuses(data))
-      .catch(err => console.log(err));
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 🔥 Fetch buses
+  const fetchBuses = async () => {
+    try {
+      const res = await fetch('http://192.168.100.100:5000/buses');
+      const data = await res.json();
+      setBuses(data);
+    } catch (err) {
+      console.log(err);
+      Alert.alert('Error', 'Failed to load buses');
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchBuses();
   }, []);
 
-  const handleDelete = (id) => {
+  // 🔥 Delete bus
+  const handleDelete = (busId, busNumber) => {
     Alert.alert(
-      "Confirm Delete",
-      "Are you sure you want to delete this bus?",
+      'Delete Bus',
+      `Are you sure you want to delete ${busNumber}?`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Delete",
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
               const res = await fetch(
-                `http://192.168.100.100:5000/delete-bus/${id}`,
+                `http://192.168.100.100:5000/delete-bus/${busId}`,
                 { method: 'DELETE' }
               );
 
               const data = await res.json();
 
               if (res.ok) {
-                Alert.alert("Success", data.message);
-                fetchBuses(); // 🔥 refresh list
+                Alert.alert('Success', data.message);
+
+                // 🔥 refresh list
+                fetchBuses();
               } else {
-                Alert.alert("Error", data.message);
+                Alert.alert('Error', data.message);
               }
             } catch (err) {
-              Alert.alert("Error", "Server error");
+              Alert.alert('Error', 'Server error');
             }
           },
         },
@@ -71,36 +84,49 @@ const DeleteBus = ({ navigation }) => {
         <View style={{ width: 26 }} />
       </View>
 
-      <ScrollView style={styles.list}>
-        {buses.length === 0 ? (
-          <Text style={{ textAlign: 'center', marginTop: 20 }}>
-            No buses found
-          </Text>
-        ) : (
-          buses.map(item => (
-            <View key={item.id} style={styles.card}>
+      {/* CONTENT */}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : buses.length === 0 ? (
+        <View style={styles.center}>
+          <Text>No buses available</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={{ padding: 15 }}>
+          {buses.map((bus) => (
+            <View key={bus.id} style={styles.card}>
               
-              <Text style={styles.busNumber}>{item.bus_number}</Text>
+              {/* BUS INFO */}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.busTitle}>🚌 {bus.bus_number}</Text>
 
-              <Text>Driver: {item.driver_name || 'N/A'}</Text>
+                <Text style={styles.meta}>
+                  Driver: {bus.driver_name || 'N/A'}
+                </Text>
 
-              <Text>
-                Route: {item.source} → {item.destination}
-              </Text>
+                <Text style={styles.meta}>
+                  Route: {bus.route_name || 'N/A'}
+                </Text>
 
-              <Text>Capacity: {item.capacity}</Text>
+                <Text style={styles.meta}>
+                  Capacity: {bus.capacity}
+                </Text>
+              </View>
 
+              {/* DELETE BUTTON */}
               <TouchableOpacity
                 style={styles.deleteBtn}
-                onPress={() => handleDelete(item.id)}
+                onPress={() => handleDelete(bus.id, bus.bus_number)}
               >
-                <Icon name="trash-outline" size={18} color="#fff" />
-                <Text style={styles.deleteText}>Delete</Text>
+                <Icon name="trash" size={20} color="#fff" />
               </TouchableOpacity>
+
             </View>
-          ))
-        )}
-      </ScrollView>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -124,37 +150,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  list: {
-    padding: 15,
-  },
-
   card: {
-    padding: 15,
-    borderRadius: 12,
+    flexDirection: 'row',
     backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 14,
     marginBottom: 12,
     elevation: 3,
+    alignItems: 'center',
   },
 
-  busNumber: {
+  busTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 4,
+  },
+
+  meta: {
+    fontSize: 13,
+    color: '#555',
   },
 
   deleteBtn: {
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'red',
+    backgroundColor: '#e74c3c',
     padding: 10,
-    borderRadius: 8,
-    justifyContent: 'center',
+    borderRadius: 10,
   },
 
-  deleteText: {
-    color: '#fff',
-    marginLeft: 5,
-    fontWeight: 'bold',
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

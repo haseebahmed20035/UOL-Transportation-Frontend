@@ -5,7 +5,7 @@ import {
   Text,
   View,
   TouchableOpacity,
-  ScrollView, // ✅ from react-native
+  ScrollView, 
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -32,7 +32,7 @@ const UpdateBus = ({ navigation }) => {
       const busRes = await fetch('http://192.168.100.100:5000/buses');
       const routeRes = await fetch('http://192.168.100.100:5000/routes');
       const driverRes = await fetch(
-        'http://192.168.100.100:5000/available-drivers'
+        'http://192.168.100.100:5000/available-drivers',
       );
 
       setBuses(await busRes.json());
@@ -61,7 +61,7 @@ const UpdateBus = ({ navigation }) => {
   ];
 
   // 🔥 Select Bus
-  const handleSelectBus = (bus) => {
+  const handleSelectBus = bus => {
     setSelectedBus(bus);
 
     setSelectedRoute(bus.route_id);
@@ -102,7 +102,7 @@ const UpdateBus = ({ navigation }) => {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const data = await res.json();
@@ -125,8 +125,9 @@ const UpdateBus = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -139,11 +140,10 @@ const UpdateBus = ({ navigation }) => {
       </View>
 
       <ScrollView style={{ padding: 15 }}>
-        
         {/* BUS LIST */}
         <Text style={styles.sectionTitle}>Select Bus</Text>
 
-        {buses.map((bus) => (
+        {buses.map(bus => (
           <TouchableOpacity
             key={bus.id}
             style={[
@@ -154,7 +154,9 @@ const UpdateBus = ({ navigation }) => {
           >
             <Text style={styles.busNumber}>{bus.bus_number}</Text>
             <Text>Driver: {bus.driver_name}</Text>
-            <Text>{bus.source} → {bus.destination}</Text>
+            <Text>
+              {bus.source} → {bus.destination}
+            </Text>
           </TouchableOpacity>
         ))}
 
@@ -165,7 +167,7 @@ const UpdateBus = ({ navigation }) => {
 
             {/* ROUTES */}
             <Text style={styles.label}>Select Route</Text>
-            {routes.map((r) => (
+            {routes.map(r => (
               <TouchableOpacity
                 key={r.id}
                 style={[
@@ -174,13 +176,22 @@ const UpdateBus = ({ navigation }) => {
                 ]}
                 onPress={() => setSelectedRoute(r.id)}
               >
-                <Text>{r.source} → {r.destination}</Text>
+                <View style={{ flexDirection: 'row', gap: 5 }}>
+                  <Text>{r.source}</Text>
+                  <Icon
+                    name="swap-horizontal-outline"
+                    size={22}
+                    color={theme.colors.primary}
+                    style={{ marginHorizontal: 10 }}
+                  />
+                  <Text>{r.destination}</Text>
+                </View>
               </TouchableOpacity>
             ))}
 
             {/* DRIVERS */}
             <Text style={styles.label}>Select Driver</Text>
-            {mergedDrivers.map((d) => (
+            {mergedDrivers.map(d => (
               <TouchableOpacity
                 key={d.id}
                 style={[
