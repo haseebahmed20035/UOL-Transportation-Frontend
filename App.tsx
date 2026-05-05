@@ -40,6 +40,13 @@ import AddRoutes from './src/Screens/AddRoutes'
 import UpdateRoutes from './src/Screens/UpdateRoutes'
 import DeleteRoutes from './src/Screens/DeleteRoutes'
 import BusList from './src/Screens/BusList'
+import StudentsReq from './src/Screens/StudentsReq'
+import AllStudents from './src/Screens/AllStudents'
+import StudentComplaints from './src/Screens/StudentComplaints'
+import StudentAttendance from './src/Screens/StudentAttendance'
+import StudentHistory from './src/Screens/StudentHistory'
+import AddStudents from './src/Screens/AddStudents'
+import ChangePassword from './src/Screens/changePassword'
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
 
@@ -113,6 +120,13 @@ const App = () => {
         <Stack.Screen name="UpdateRoutes" component={UpdateRoutes} />
         <Stack.Screen name="DeleteRoutes" component={DeleteRoutes} />
         <Stack.Screen name="BusList" component={BusList} />
+        <Stack.Screen name="AllStudents" component={AllStudents} />
+        <Stack.Screen name="StudentsReq" component={StudentsReq} />
+        <Stack.Screen name="StudentComplaints" component={StudentComplaints} />
+        <Stack.Screen name="StudentAttendance" component={StudentAttendance} />
+        <Stack.Screen name="StudentHistory" component={StudentHistory} />
+        <Stack.Screen name="AddStudents" component={AddStudents} />
+        <Stack.Screen name="ChangePassword" component={ChangePassword} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

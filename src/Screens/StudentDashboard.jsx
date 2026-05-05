@@ -8,34 +8,50 @@ import {
   View,
   Animated,
   TextInput,
-} from 'react-native';
-import React, { useState, useContext } from 'react';
-import Icon from 'react-native-vector-icons/Ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemeContext } from '../context/ThemeContext';
+} from 'react-native'
+import React, { useState, useContext, useEffect } from 'react'
+import Icon from 'react-native-vector-icons/Ionicons'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { ThemeContext } from '../context/ThemeContext'
 
 const StudentDashboard = ({ navigation }) => {
+  const { theme } = useContext(ThemeContext)
+  const [student, setStudent] = useState(null)
+  const [menuVisible, setMenuVisible] = useState(false)
+  const [recentScreens, setRecentScreens] = useState([])
+  const [searchText, setSearchText] = useState('')
+  const fadeAnim = React.useRef(new Animated.Value(0)).current
 
-  const { theme } = useContext(ThemeContext);
+  const fetchStudentData = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user')
+      const user = JSON.parse(userData)
 
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [recentScreens, setRecentScreens] = useState([]);
-  const [searchText, setSearchText] = useState('');
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+      const res = await fetch(`http://192.168.100.100:5000/student/${user.id}`)
 
-  const navigateAndTrack = async (screenName) => {
-    const time = new Date().toLocaleTimeString();
+      const data = await res.json()
+
+      setStudent(data)
+    } catch (err) {
+      console.log('ERROR:', err)
+    }
+  }
+  useEffect(() => {
+    fetchStudentData()
+  }, [])
+  const navigateAndTrack = async screenName => {
+    const time = new Date().toLocaleTimeString()
 
     const updated = [
       { name: screenName, time },
       ...recentScreens.filter(s => s.name !== screenName),
-    ].slice(0, 5);
+    ].slice(0, 5)
 
-    setRecentScreens(updated);
-    await AsyncStorage.setItem('recentScreens', JSON.stringify(updated));
+    setRecentScreens(updated)
+    await AsyncStorage.setItem('recentScreens', JSON.stringify(updated))
 
-    navigation.navigate(screenName);
-  };
+    navigation.navigate(screenName)
+  }
 
   const appScreens = [
     'MyRoute',
@@ -44,18 +60,17 @@ const StudentDashboard = ({ navigation }) => {
     'LiveBusTracking',
     'ChangeRoute',
     'RequestForTransport',
-  ];
+  ]
 
   const filteredScreens = appScreens.filter(screen =>
-    screen.toLowerCase().includes(searchText.toLowerCase())
-  );
+    screen.toLowerCase().includes(searchText.toLowerCase()),
+  )
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       {/* HEADER */}
-     <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
-
+      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <View style={styles.headerCenter}>
           <Image source={require('../Images/uol.png')} style={styles.logo} />
           <Text style={styles.headerText}>UOL Transportation</Text>
@@ -63,25 +78,27 @@ const StudentDashboard = ({ navigation }) => {
 
         <View style={styles.headerRight}>
           <TouchableOpacity>
-            <Icon name="help-circle-outline" size={26} color="white" />
+            <Icon name='help-circle-outline' size={26} color='white' />
           </TouchableOpacity>
 
           <TouchableOpacity>
-            <Icon name="notifications-outline" size={26} color="white" />
+            <Icon name='notifications-outline' size={26} color='white' />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.avatar}
             onPress={() => {
-              setMenuVisible(!menuVisible);
+              setMenuVisible(!menuVisible)
               Animated.timing(fadeAnim, {
                 toValue: 1,
                 duration: 300,
                 useNativeDriver: true,
-              }).start();
+              }).start()
             }}
           >
-            <Text style={styles.avatarText}>H</Text>
+            <Text style={styles.avatarText}>
+              {student?.name?.charAt(0) || 'H'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -97,7 +114,9 @@ const StudentDashboard = ({ navigation }) => {
             <View style={styles.profileCircle}>
               <Text style={{ color: '#175812', fontWeight: 'bold' }}>H</Text>
             </View>
-            <Text style={styles.profileName}>Haseeb</Text>
+            <Text style={styles.profileName}>
+              {student?.name || 'Loading...'}
+            </Text>
           </View>
 
           <View style={styles.divider} />
@@ -106,10 +125,10 @@ const StudentDashboard = ({ navigation }) => {
           <TouchableOpacity
             style={styles.menuRow}
             onPress={() => {
-              navigateAndTrack('Help');
+              navigateAndTrack('Help')
             }}
           >
-            <Icon name="help-circle-outline" size={22} color="#175812" />
+            <Icon name='help-circle-outline' size={22} color='#175812' />
             <Text style={styles.menuText}>Help Center</Text>
           </TouchableOpacity>
 
@@ -117,10 +136,10 @@ const StudentDashboard = ({ navigation }) => {
           <TouchableOpacity
             style={styles.menuRow}
             onPress={() => {
-              navigateAndTrack('AppSettings');
+              navigateAndTrack('AppSettings')
             }}
           >
-            <Icon name="settings-outline" size={22} color="#175812" />
+            <Icon name='settings-outline' size={22} color='#175812' />
             <Text style={styles.menuText}>Settings</Text>
           </TouchableOpacity>
 
@@ -147,9 +166,9 @@ const StudentDashboard = ({ navigation }) => {
           <Text style={styles.sectionTitle}>App Finder</Text>
 
           <View style={styles.searchWrapper}>
-            <Icon name="search" size={16} color="gray" />
+            <Icon name='search' size={16} color='gray' />
             <TextInput
-              placeholder="Search screen..."
+              placeholder='Search screen...'
               value={searchText}
               onChangeText={setSearchText}
               style={styles.searchBox}
@@ -181,10 +200,10 @@ const StudentDashboard = ({ navigation }) => {
                   text: 'Yes',
                   onPress: () => navigation.replace('Login'),
                 },
-              ]);
+              ])
             }}
           >
-            <Icon name="log-out-outline" size={22} color="white" />
+            <Icon name='log-out-outline' size={22} color='white' />
             <Text style={{ color: 'white', marginLeft: 6 }}>Sign Out</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -193,17 +212,9 @@ const StudentDashboard = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* ROUTE INFORMATION */}
         <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.colors.background },
-          ]}
+          style={[styles.card, { backgroundColor: theme.colors.background }]}
         >
-          <Text
-            style={[
-              styles.cardTitle,
-              { color: theme.colors.text },
-            ]}
-          >
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
             Route Information
           </Text>
 
@@ -213,20 +224,19 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('MyRoute');
+                navigateAndTrack('MyRoute')
               }}
             >
-              <Icon name="navigate-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text },
-                ]}
-              >
+              <Icon
+                name='navigate-outline'
+                size={26}
+                color={theme.colors.icon}
+              />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 My Route
               </Text>
             </TouchableOpacity>
@@ -236,20 +246,15 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('AllRoutes');
+                navigateAndTrack('AllRoutes')
               }}
             >
-              <Icon name="map-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon name='map-outline' size={26} color={theme.colors.icon} />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 All Routes
               </Text>
             </TouchableOpacity>
@@ -259,20 +264,19 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('BusSchedule');
+                navigateAndTrack('BusSchedule')
               }}
             >
-              <Icon name="calendar-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon
+                name='calendar-outline'
+                size={26}
+                color={theme.colors.icon}
+              />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 Bus Schedule
               </Text>
             </TouchableOpacity>
@@ -282,20 +286,15 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('LiveBusTracking');
+                navigateAndTrack('LiveBusTracking')
               }}
             >
-              <Icon name="bus-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon name='bus-outline' size={26} color={theme.colors.icon} />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 Live Bus Tracking
               </Text>
             </TouchableOpacity>
@@ -305,20 +304,19 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('ChangeRoute');
+                navigateAndTrack('ChangeRoute')
               }}
             >
-              <Icon name="swap-horizontal-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon
+                name='swap-horizontal-outline'
+                size={26}
+                color={theme.colors.icon}
+              />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 Change Route
               </Text>
             </TouchableOpacity>
@@ -328,20 +326,19 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('RequestForTransport');
+                navigateAndTrack('RequestForTransport')
               }}
             >
-              <Icon name="document-text-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon
+                name='document-text-outline'
+                size={26}
+                color={theme.colors.icon}
+              />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 Request For Transport
               </Text>
             </TouchableOpacity>
@@ -350,17 +347,9 @@ const StudentDashboard = ({ navigation }) => {
 
         {/* PERSONAL DETAILS */}
         <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.colors.background },
-          ]}
+          style={[styles.card, { backgroundColor: theme.colors.background }]}
         >
-          <Text
-            style={[
-              styles.cardTitle,
-              { color: theme.colors.text },
-            ]}
-          >
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
             Personal Details
           </Text>
 
@@ -370,20 +359,15 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('MyPersonalInfo');
+                navigateAndTrack('MyPersonalInfo')
               }}
             >
-              <Icon name="person-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon name='person-outline' size={26} color={theme.colors.icon} />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 My Personal Information
               </Text>
             </TouchableOpacity>
@@ -393,20 +377,19 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('FeeVoucher');
+                navigateAndTrack('FeeVoucher')
               }}
             >
-              <Icon name="receipt-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon
+                name='receipt-outline'
+                size={26}
+                color={theme.colors.icon}
+              />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 Fee Voucher
               </Text>
             </TouchableOpacity>
@@ -415,17 +398,9 @@ const StudentDashboard = ({ navigation }) => {
 
         {/* APP SETTINGS */}
         <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.colors.background },
-          ]}
+          style={[styles.card, { backgroundColor: theme.colors.background }]}
         >
-          <Text
-            style={[
-              styles.cardTitle,
-              { color: theme.colors.text },
-            ]}
-          >
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
             App Settings
           </Text>
 
@@ -435,20 +410,19 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('AppSettings');
+                navigateAndTrack('AppSettings')
               }}
             >
-              <Icon name="settings-outline" size={26} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon
+                name='settings-outline'
+                size={26}
+                color={theme.colors.icon}
+              />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 App Settings
               </Text>
             </TouchableOpacity>
@@ -458,20 +432,19 @@ const StudentDashboard = ({ navigation }) => {
                 styles.box,
                 {
                   backgroundColor: theme.colors.box,
-                    borderColor: theme.colors.border,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => {
-                navigateAndTrack('Help');
+                navigateAndTrack('Help')
               }}
             >
-              <Icon name="help-circle-outline" size={30} color={theme.colors.icon} />
-              <Text
-                style={[
-                  styles.boxText,
-                  { color: theme.colors.text},
-                ]}
-              >
+              <Icon
+                name='help-circle-outline'
+                size={30}
+                color={theme.colors.icon}
+              />
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
                 Help
               </Text>
             </TouchableOpacity>
@@ -479,10 +452,10 @@ const StudentDashboard = ({ navigation }) => {
         </View>
       </ScrollView>
     </View>
-  );
-};
+  )
+}
 
-export default StudentDashboard;
+export default StudentDashboard
 
 const styles = StyleSheet.create({
   container: {
@@ -694,4 +667,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
-});
+})

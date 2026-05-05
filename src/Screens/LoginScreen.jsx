@@ -7,153 +7,174 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-} from 'react-native';
-import React, { useState, useEffect } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+} from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { GoogleSignin } from '@react-native-google-signin/google-signin'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
-const BASE_URL = "http://192.168.100.100:5000/api"; // 🔥 your IP
+const BASE_URL = 'http://192.168.100.100:5000/api' // 🔥 your IP
 
 const LoginScreen = ({ navigation }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const loadSavedCredentials = async () => {
+  try {
+    const savedEmail = await AsyncStorage.getItem('savedEmail');
+    const savedPassword = await AsyncStorage.getItem('savedPassword');
 
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId:
-        '967891107317-2nje8fbbcq60u2l5bpq668brt1qrapol.apps.googleusercontent.com',
-    });
-  }, []);
-const getAlertMessage = (value, fallback = "Something went wrong") => {
-  if (typeof value === "string") return value;
-
-  if (Array.isArray(value)) {
-    return value.map(item => {
-      if (typeof item === "string") return item;
-      return JSON.stringify(item);
-    }).join("\n");
+    if (savedEmail) setUsername(savedEmail);
+    if (savedPassword) setPassword(savedPassword);
+  } catch (err) {
+    console.log("LOAD ERROR:", err);
   }
-
-  if (value && typeof value === "object") {
-    if (typeof value.message === "string") return value.message;
-    if (typeof value.error === "string") return value.error;
-    if (typeof value.msg === "string") return value.msg;
-
-    return JSON.stringify(value, null, 2);
-  }
-
-  return fallback;
 };
+  useEffect(() => {
+  GoogleSignin.configure({
+    webClientId:
+      '967891107317-2nje8fbbcq60u2l5bpq668brt1qrapol.apps.googleusercontent.com',
+  });
+
+  loadSavedCredentials();
+}, []);
+  const getAlertMessage = (value, fallback = 'Something went wrong') => {
+    if (typeof value === 'string') return value
+
+    if (Array.isArray(value)) {
+      return value
+        .map(item => {
+          if (typeof item === 'string') return item
+          return JSON.stringify(item)
+        })
+        .join('\n')
+    }
+
+    if (value && typeof value === 'object') {
+      if (typeof value.message === 'string') return value.message
+      if (typeof value.error === 'string') return value.error
+      if (typeof value.msg === 'string') return value.msg
+
+      return JSON.stringify(value, null, 2)
+    }
+
+    return fallback
+  }
   // ================= ADMIN LOGIN =================
   const handleAdminLogin = async () => {
-  if (!username || !password) {
-    Alert.alert("Error", "Please enter username and password");
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const response = await fetch(`${BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: username.trim(),
-        password: password.trim(),
-      }),
-    });
-
-    const data = await response.json();
-
-    console.log("ADMIN LOGIN RESPONSE:", JSON.stringify(data, null, 2));
-
-    if (data.success) {
-      const role = data.user?.role;
-
-if (role === "admin") {
-  navigation.replace("AdminDashboard");
-} else if (role === "student") {
-  navigation.replace("Tabs");
-} else if (role === "driver") {
-  navigation.replace("DriverDashboard");
-} else {
-  Alert.alert("Error", "Unknown role");
-}
-    } else {
-      Alert.alert(
-        "Login Failed",
-        getAlertMessage(data.message, "Invalid credentials")
-      );
+    if (!username || !password) {
+      Alert.alert('Error', 'Please enter username and password')
+      return
     }
-  } catch (error) {
-    console.log("ADMIN ERROR:", error);
 
-    Alert.alert(
-      "Error",
-      getAlertMessage(error?.message || error, "Something went wrong")
-    );
-  } finally {
-    setLoading(false);
+    try {
+      setLoading(true)
+      await AsyncStorage.setItem('savedEmail', username)
+      await AsyncStorage.setItem('savedPassword', password)
+      const response = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: username.trim(),
+          password: password.trim(),
+        }),
+      })
+
+      const data = await response.json()
+
+      console.log('ADMIN LOGIN RESPONSE:', JSON.stringify(data, null, 2))
+
+      if (data.success) {
+        await AsyncStorage.setItem('user', JSON.stringify(data.user))
+        await AsyncStorage.setItem('savedEmail', username)
+        await AsyncStorage.setItem('savedPassword', password)
+        const role = data.user?.role
+
+        if (role === 'admin') {
+          navigation.replace('AdminDashboard')
+        } else if (role === 'student') {
+          navigation.replace('Tabs')
+        } else if (role === 'driver') {
+          navigation.replace('DriverDashboard')
+        } else {
+          Alert.alert('Error', 'Unknown role')
+        }
+      } else {
+        Alert.alert(
+          'Login Failed',
+          getAlertMessage(data.message, 'Invalid credentials'),
+        )
+      }
+    } catch (error) {
+      console.log('ADMIN ERROR:', error)
+
+      Alert.alert(
+        'Error',
+        getAlertMessage(error?.message || error, 'Something went wrong'),
+      )
+    } finally {
+      setLoading(false)
+    }
   }
-};
 
   // ================= GOOGLE LOGIN =================
   const handleGoogleLogin = async () => {
     try {
-      setLoading(true);
+      setLoading(true)
 
-      await GoogleSignin.hasPlayServices();
+      await GoogleSignin.hasPlayServices()
 
-      const userInfo = await GoogleSignin.signIn();
+      const userInfo = await GoogleSignin.signIn()
 
-      const email = userInfo.user.email;
+      const email = userInfo.user.email
 
-      console.log("Google Email:", email);
+      console.log('Google Email:', email)
 
       // 🔥 SEND TO BACKEND
       const response = await fetch(`${BASE_URL}/auth/google-login`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email }),
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
 
-      console.log("GOOGLE LOGIN RESPONSE:", data);
+      console.log('GOOGLE LOGIN RESPONSE:', data)
 
       if (data.success) {
-        const role = data.user.role;
+        const role = data.user.role
 
-        if (role === "student") {
-          navigation.replace("Tabs");
-        } else if (role === "driver") {
-          navigation.replace("DriverDashboard");
-        } else if (role === "admin") {
-          navigation.replace("AdminDashboard");
+        if (role === 'student') {
+          navigation.replace('Tabs')
+        } else if (role === 'driver') {
+          navigation.replace('DriverDashboard')
+        } else if (role === 'admin') {
+          navigation.replace('AdminDashboard')
         } else {
-          Alert.alert("Error", "Unknown role");
+          Alert.alert('Error', 'Unknown role')
         }
       } else {
-        Alert.alert("Login Failed", getAlertMessage(data.message, "User not found"));
+        Alert.alert(
+          'Login Failed',
+          getAlertMessage(data.message, 'User not found'),
+        )
       }
-
     } catch (error) {
-      console.log("GOOGLE ERROR:", error);
+      console.log('GOOGLE ERROR:', error)
 
       Alert.alert(
-        "Google Sign-In Failed",
-        typeof error?.message === "string"
+        'Google Sign-In Failed',
+        typeof error?.message === 'string'
           ? error.message
-          : JSON.stringify(error)
-      );
+          : JSON.stringify(error),
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // ================= UI =================
   return (
@@ -173,7 +194,7 @@ if (role === "admin") {
         <View style={{ gap: 12, paddingHorizontal: 10 }}>
           <View style={styles.textBox}>
             <TextInput
-              placeholder="Admin Email"
+              placeholder='Email'
               value={username}
               onChangeText={setUsername}
             />
@@ -181,42 +202,38 @@ if (role === "admin") {
 
           <View style={styles.textBox}>
             <TextInput
-              placeholder="Password"
+              placeholder='Password'
               secureTextEntry
               value={password}
               onChangeText={setPassword}
-              style={{ color: "black" }}
+              style={{ color: 'black' }}
             />
           </View>
-          
         </View>
 
         <TouchableOpacity style={styles.LoginBtn} onPress={handleAdminLogin}>
           {loading ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color='white' />
           ) : (
             <Text style={styles.LoginBtnText}>Login</Text>
           )}
         </TouchableOpacity>
 
         {/* GOOGLE LOGIN */}
-        <Text style={{ marginTop: 35, alignSelf: 'center' }}>
-          OR
-        </Text>
+        <Text style={{ marginTop: 35, alignSelf: 'center' }}>OR</Text>
 
         <TouchableOpacity
-          style={[styles.LoginBtn, { backgroundColor: "#4285F4" }]}
+          style={[styles.LoginBtn, { backgroundColor: '#4285F4' }]}
           onPress={handleGoogleLogin}
         >
           <Text style={styles.LoginBtnText}>Login with Google</Text>
         </TouchableOpacity>
-
       </View>
     </View>
-  );
-};
+  )
+}
 
-export default LoginScreen;
+export default LoginScreen
 
 const styles = StyleSheet.create({
   mainHeading: {
@@ -261,4 +278,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
   },
-});
+})

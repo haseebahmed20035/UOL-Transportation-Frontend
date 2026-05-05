@@ -21,7 +21,7 @@ const BusList = ({ navigation }) => {
               <Icon name="arrow-back" size={26} color="#fff" />
             </TouchableOpacity>
     
-            <Text style={styles.headerText}>Add Bus</Text>
+            <Text style={styles.headerText}>View Bus</Text>
             <View style={{ width: 26 }} />
           </View>
     <FlatList

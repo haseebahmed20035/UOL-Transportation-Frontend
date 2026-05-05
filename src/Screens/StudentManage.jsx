@@ -1,14 +1,129 @@
-import { StyleSheet, Text, View } from 'react-native'
-import React from 'react'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useContext } from 'react';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { ThemeContext } from '../context/ThemeContext';
 
-const StudentManage = () => {
+const ManageBuses = ({ navigation }) => {
+  const { theme } = useContext(ThemeContext);
+
+  const menuItems = [
+    {
+      title: 'Add Students',
+      icon: 'add-circle-outline',
+      screen: 'AddStudents',
+    },
+    {
+      title: 'View All Students',
+      icon: 'eye',
+      screen: 'AllStudents',
+    },
+    {
+      title: 'Transport Requests',
+      icon: 'git-pull-request-outline',
+      screen: 'StudentsReq',
+    },
+    {
+      title: 'Complaints',
+      icon: 'alert-circle-outline',
+      screen: 'StudentComplaints',
+    },
+    {
+      title: 'Attendance',
+      icon: 'checkmark-done-outline',
+      screen: 'StudentAttendance',
+    },
+    {
+      title: 'Travel History',
+      icon: 'time-outline',
+      screen: 'StudentHistory',
+    },
+  ];
+
   return (
-    <View>
-      <Text>StudentManage</Text>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      {/* HEADER */}
+      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={26} color="white" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerText}>Manage Students</Text>
+
+        <View style={{ width: 26 }} />
+      </View>
+
+      {/* CONTENT */}
+      <View style={styles.content}>
+        {menuItems.map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.box,
+              {
+                backgroundColor: theme.colors.box,
+                borderColor: theme.colors.border,
+              },
+            ]}
+            onPress={() => navigation.navigate(item.screen)}
+          >
+            <Icon name={item.icon} size={30} color={theme.colors.icon} />
+
+            <Text style={[styles.boxText, { color: theme.colors.text }]}>
+              {item.title}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
-  )
-}
+  );
+};
 
-export default StudentManage
+export default ManageBuses;
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+
+  header: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  headerText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+
+  content: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 30,
+  },
+
+  box: {
+    width: '47%',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    elevation: 3,
+  },
+
+  boxText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
