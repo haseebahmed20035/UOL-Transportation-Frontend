@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext, useRef } from 'react'
 import {
   StyleSheet,
   Text,
@@ -7,75 +7,157 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-} from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { ThemeContext } from '../context/ThemeContext';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { useEffect } from 'react';
+} from 'react-native'
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete'
+import { ThemeContext } from '../context/ThemeContext'
+import Icon from 'react-native-vector-icons/Ionicons'
+import { useEffect } from 'react'
+import { PermissionsAndroid, Platform } from 'react-native'
+import Geolocation from '@react-native-community/geolocation'
 
-const GOOGLE_API_KEY = 'AIzaSyBG_tfwPfE3Bnn2-8CwNTOZuPd1c0Yr0Wc';
-
+const GOOGLE_API_KEY = 'AIzaSyBG_tfwPfE3Bnn2-8CwNTOZuPd1c0Yr0Wc'
+Geolocation.setRNConfiguration({
+  skipPermissionRequests: false,
+  authorizationLevel: 'whenInUse',
+})
 const AddRoutes = ({ navigation }) => {
-  const mapRef = useRef(null);
-  const { theme } = useContext(ThemeContext);
-  const [routeName, setRouteName] = useState('');
-  const [source, setSource] = useState('');
-  const [destination, setDestination] = useState('');
-  const [time, setTime] = useState('');
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'App needs access to your location',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        )
 
-  const [stops, setStops] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState(null);
+        return granted === PermissionsAndroid.RESULTS.GRANTED
+      } catch (err) {
+        console.warn(err)
+        return false
+      }
+    }
 
-  const [loading, setLoading] = useState(false);
+    return true
+  }
+  const moveToCurrentLocation = async () => {
+    const granted = await requestLocationPermission()
+
+    if (!granted) {
+      Alert.alert('Permission Denied', 'Location permission is required')
+      return
+    }
+
+    Geolocation.getCurrentPosition(
+      position => {
+        console.log(position)
+
+        const { latitude, longitude } = position.coords
+
+        mapRef.current?.animateToRegion(
+          {
+            latitude,
+            longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          },
+          1000,
+        )
+      },
+      error => {
+        console.log(error)
+
+        Alert.alert(
+          'Location Error',
+          error.message || 'Unable to fetch location',
+        )
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 30000,
+        maximumAge: 1000,
+      },
+    )
+  }
+
+  const mapRef = useRef(null)
+  const { theme } = useContext(ThemeContext)
+  const [routeName, setRouteName] = useState('')
+  const [source, setSource] = useState('')
+  const [destination, setDestination] = useState('')
+  const [time, setTime] = useState('')
+
+  const [stops, setStops] = useState([])
+  const [selectedLocation, setSelectedLocation] = useState(null)
+
+  const [loading, setLoading] = useState(false)
 
   // 🔥 MAP CLICK
   const handleMapPress = async e => {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
+    const { latitude, longitude } = e.nativeEvent.coordinate
+
+    // 🔥 temporary instant stop
+    const tempStop = {
+      stop_name: 'Loading address...',
+      latitude,
+      longitude,
+    }
+
+    setStops(prev => [...prev, tempStop])
 
     try {
       const res = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}`,
-      );
+      )
 
-      const data = await res.json();
-      const address = data.results[0]?.formatted_address || 'Unknown Location';
+      const data = await res.json()
 
-      const newStop = {
-        stop_name: address,
-        latitude,
-        longitude,
-      };
+      const result = data.results?.[0]
 
-      // ❗ prevent duplicate
-      const exists = stops.some(
-        s => s.latitude === latitude && s.longitude === longitude,
-      );
+      const address =
+        result?.address_components?.find(c => c.types.includes('route'))
+          ?.long_name ||
+        result?.address_components?.find(c => c.types.includes('sublocality'))
+          ?.long_name ||
+        result?.formatted_address ||
+        'Location Selected'
 
-      if (exists) {
-        Alert.alert('Already added');
-        return;
-      }
+      // 🔥 update latest stop name
+      setStops(prev => {
+        const updated = [...prev]
 
-      setStops(prev => [...prev, newStop]);
+        const index = updated.findIndex(
+          s => s.latitude === latitude && s.longitude === longitude,
+        )
 
-      // optional: move camera
-      mapRef.current?.animateToRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
+        if (index !== -1) {
+          updated[index].stop_name = address
+        }
+
+        return updated
+      })
     } catch (err) {
-      console.log(err);
+      console.log(err)
     }
-  };
+
+    mapRef.current?.animateToRegion({
+      latitude,
+      longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    })
+  }
 
   // 🔥 ADD STOP
   const handleAddStop = () => {
     if (!selectedLocation) {
-      Alert.alert('Error', 'Tap on map first');
-      return;
+      Alert.alert('Error', 'Tap on map first')
+      return
     }
 
     setStops(prev => [
@@ -85,24 +167,24 @@ const AddRoutes = ({ navigation }) => {
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
       },
-    ]);
+    ])
 
-    setSelectedLocation(null);
-  };
+    setSelectedLocation(null)
+  }
 
   // 🔥 REMOVE STOP
   const removeStop = index => {
-    setStops(stops.filter((_, i) => i !== index));
-  };
+    setStops(stops.filter((_, i) => i !== index))
+  }
 
   // 🔥 SUBMIT
   const handleSubmit = async () => {
     if (!source || !destination || stops.length === 0) {
-      Alert.alert('Error', 'Fill all fields and add stops');
-      return;
+      Alert.alert('Error', 'Fill all fields and add stops')
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
 
     try {
       const res = await fetch('http://192.168.100.100:5000/add-route', {
@@ -117,84 +199,86 @@ const AddRoutes = ({ navigation }) => {
           estimated_time: time,
           stops,
         }),
-      });
+      })
 
-      const data = await res.json();
+      const data = await res.json()
 
       if (res.ok) {
-        Alert.alert('Success', data.message);
-        setRouteName('');
-        setSource('');
-        setDestination('');
-        setTime('');
-        setStops([]);
+        Alert.alert('Success', data.message)
+        setRouteName('')
+        setSource('')
+        setDestination('')
+        setTime('')
+        setStops([])
       } else {
-        Alert.alert('Error', data.message);
+        Alert.alert('Error', data.message)
       }
     } catch (err) {
-      Alert.alert('Error', 'Server error');
+      Alert.alert('Error', 'Server error')
     }
 
-    setLoading(false);
-  };
+    setLoading(false)
+  }
   const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const R = 6371 // km
+    const dLat = (lat2 - lat1) * (Math.PI / 180)
+    const dLon = (lon2 - lon1) * (Math.PI / 180)
 
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * (Math.PI / 180)) *
         Math.cos(lat2 * (Math.PI / 180)) *
         Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        Math.sin(dLon / 2)
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-    return R * c; // km
-  };
+    return R * c // km
+  }
   const calculateEstimatedTime = () => {
-    if (stops.length < 2) return;
+    if (stops.length < 2) return
 
-    let totalDistance = 0;
+    let totalDistance = 0
 
     for (let i = 0; i < stops.length - 1; i++) {
-      const s1 = stops[i];
-      const s2 = stops[i + 1];
+      const s1 = stops[i]
+      const s2 = stops[i + 1]
 
       totalDistance += getDistanceInKm(
         s1.latitude,
         s1.longitude,
         s2.latitude,
         s2.longitude,
-      );
+      )
     }
 
     // 🚌 assume avg speed = 30 km/h (city traffic)
-    const travelTimeMinutes = (totalDistance / 30) * 60;
+    const travelTimeMinutes = (totalDistance / 30) * 60
 
     // ⏱️ stop delay (5 min each)
-    const stopDelay = (stops.length - 1) * 5;
+    const stopDelay = (stops.length - 1) * 5
 
-    const totalTime = Math.round(travelTimeMinutes + stopDelay);
+    const totalTime = Math.round(travelTimeMinutes + stopDelay)
 
-    setTime(`${totalTime} mins`);
-  };
+    setTime(`${totalTime} mins`)
+  }
   useEffect(() => {
-    calculateEstimatedTime();
-  }, [stops]);
+    calculateEstimatedTime()
+  }, [stops])
 
   useEffect(() => {
     if (stops.length > 0) {
     }
-  }, [stops]);
-
+  }, [stops])
+  useEffect(() => {
+    requestLocationPermission()
+  }, [])
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={26} color="#fff" />
+          <Icon name='arrow-back' size={26} color='#fff' />
         </TouchableOpacity>
 
         <Text style={styles.headerText}>Add Route</Text>
@@ -204,20 +288,20 @@ const AddRoutes = ({ navigation }) => {
       <ScrollView contentContainerStyle={{ padding: 15 }}>
         {/* INPUTS */}
         <TextInput
-          placeholder="Route Name (e.g. UOL Morning Route)"
+          placeholder='Route Name (e.g. UOL Morning Route)'
           value={routeName}
           onChangeText={setRouteName}
           style={styles.input}
         />
         <TextInput
-          placeholder="Source"
+          placeholder='Source'
           value={source}
           onChangeText={setSource}
           style={styles.input}
         />
 
         <TextInput
-          placeholder="Destination"
+          placeholder='Destination'
           value={destination}
           onChangeText={setDestination}
           style={styles.input}
@@ -227,26 +311,26 @@ const AddRoutes = ({ navigation }) => {
         {source && destination && (
           <View style={styles.routePreview}>
             <View style={styles.locationBox}>
-              <Icon name="location" size={16} color="#2ecc71" />
+              <Icon name='location' size={16} color='#2ecc71' />
               <Text style={styles.locationText}>{source}</Text>
             </View>
 
             <Icon
-              name="swap-horizontal-outline"
+              name='swap-horizontal-outline'
               size={22}
               color={theme.colors.primary}
               style={{ marginHorizontal: 10 }}
             />
 
             <View style={styles.locationBox}>
-              <Icon name="flag-outline" size={16} color="#e74c3c" />
+              <Icon name='flag-outline' size={16} color='#e74c3c' />
               <Text style={styles.locationText}>{destination}</Text>
             </View>
           </View>
         )}
 
         <TextInput
-          placeholder="Estimated Time"
+          placeholder='Estimated Time'
           value={time}
           editable={false} // 🔥 important
           style={[styles.input, { backgroundColor: '#f1f3f6' }]}
@@ -301,37 +385,39 @@ const AddRoutes = ({ navigation }) => {
 
         {/* MAP */}
         <Text style={styles.section}>Tap map to add stop</Text>
+        <View style={{ position: 'relative' }}>
+          <MapView
+            provider={PROVIDER_GOOGLE}
+            ref={mapRef}
+            style={styles.map}
+            showsUserLocation={true}
+            followsUserLocation={true}
+            showsMyLocationButton={false}
+            showsCompass={true}
+            onPress={handleMapPress}
+          >
+            {selectedLocation && <Marker coordinate={selectedLocation} />}
 
-        <MapView
-          provider={PROVIDER_GOOGLE}
-          ref={mapRef}
-          style={styles.map}
-          initialRegion={{
-            latitude: 31.5204,
-            longitude: 74.3587,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          }}
-          showsUserLocation
-          showsMyLocationButton
-          onPress={handleMapPress}
-        >
-          {selectedLocation && <Marker coordinate={selectedLocation} />}
-
-          {/* ALL STOPS */}
-          {stops.map((s, i) => (
-            <Marker
-              key={i}
-              coordinate={{
-                latitude: parseFloat(s.latitude),
-                longitude: parseFloat(s.longitude),
-              }}
-              title={s.stop_name}
-              pinColor="blue"
-            />
-          ))}
-        </MapView>
-
+            {/* ALL STOPS */}
+            {stops.map((s, i) => (
+              <Marker
+                key={i}
+                coordinate={{
+                  latitude: parseFloat(s.latitude),
+                  longitude: parseFloat(s.longitude),
+                }}
+                title={s.stop_name}
+                pinColor='blue'
+              />
+            ))}
+          </MapView>
+          <TouchableOpacity
+            style={styles.locationBtn}
+            onPress={moveToCurrentLocation}
+          >
+            <Icon name='locate' size={24} color='#fff' />
+          </TouchableOpacity>
+        </View>
         {/* SELECTED */}
         {selectedLocation && (
           <View style={styles.selectedBox}>
@@ -354,7 +440,7 @@ const AddRoutes = ({ navigation }) => {
             </View>
 
             <TouchableOpacity onPress={() => removeStop(index)}>
-              <Icon name="trash" size={18} color="red" />
+              <Icon name='trash' size={18} color='red' />
             </TouchableOpacity>
           </View>
         ))}
@@ -371,10 +457,10 @@ const AddRoutes = ({ navigation }) => {
         </TouchableOpacity>
       </ScrollView>
     </View>
-  );
-};
+  )
+}
 
-export default AddRoutes;
+export default AddRoutes
 
 const styles = StyleSheet.create({
   input: {
@@ -518,4 +604,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-});
+  locationBtn: {
+    position: 'absolute',
+    right: 15,
+    bottom: 20,
+    backgroundColor: '#007AFF',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+  },
+})

@@ -6,26 +6,28 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-} from 'react-native';
-import React, { useState, useContext, useEffect } from 'react';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { ThemeContext } from '../context/ThemeContext';
-import { Dimensions } from 'react-native';
+} from 'react-native'
+import React, { useState, useContext, useEffect } from 'react'
+import Icon from 'react-native-vector-icons/Ionicons'
+import { ThemeContext } from '../context/ThemeContext'
+import { Dimensions } from 'react-native'
 
 const AddBus = ({ navigation }) => {
-  const { width, height } = Dimensions.get('window');
+  const { width, height } = Dimensions.get('window')
 
   // 📱 Responsive helpers
-  const wp = percentage => (width * percentage) / 100;
-  const hp = percentage => (height * percentage) / 100;
-  const { theme } = useContext(ThemeContext);
+  const wp = percentage => (width * percentage) / 100
+  const hp = percentage => (height * percentage) / 100
+  const { theme } = useContext(ThemeContext)
 
-  const [capacity, setCapacity] = useState('30');
-  const [routes, setRoutes] = useState([]);
-  const [drivers, setDrivers] = useState([]);
-  const [selectedRoute, setSelectedRoute] = useState(null);
-  const [selectedDriver, setSelectedDriver] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [capacity, setCapacity] = useState('30')
+  const [routes, setRoutes] = useState([])
+  const [drivers, setDrivers] = useState([])
+  const [selectedRoute, setSelectedRoute] = useState(null)
+  const [selectedDriver, setSelectedDriver] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [departureTime, setDepartureTime] = useState('')
+  const [departureTimings, setDepartureTimings] = useState([])
 
   // ✅ Fetch routes
   const fetchData = () => {
@@ -33,27 +35,36 @@ const AddBus = ({ navigation }) => {
     fetch('http://192.168.100.100:5000/routes')
       .then(res => res.json())
       .then(data => setRoutes(data))
-      .catch(err => console.log('Route error:', err));
+      .catch(err => console.log('Route error:', err))
 
     // drivers
     fetch('http://192.168.100.100:5000/available-drivers')
       .then(res => res.json())
       .then(data => setDrivers(data))
-      .catch(err => console.log('Driver error:', err));
-  };
+      .catch(err => console.log('Driver error:', err))
+  }
+  const addDepartureTiming = () => {
+    if (!departureTime.trim()) {
+      Alert.alert('Enter departure timing')
+      return
+    }
 
+    setDepartureTimings(prev => [...prev, departureTime])
+
+    setDepartureTime('')
+  }
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData()
+  }, [])
 
   const handleAddBus = async () => {
     // ✅ validation first
     if (!capacity || !selectedRoute || !selectedDriver) {
-      Alert.alert('Error', 'Please fill all fields');
-      return;
+      Alert.alert('Error', 'Please fill all fields')
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
 
     try {
       const response = await fetch('http://192.168.100.100:5000/add-bus', {
@@ -63,30 +74,31 @@ const AddBus = ({ navigation }) => {
           capacity: capacity,
           route_id: selectedRoute,
           driver_id: selectedDriver,
+          departure_timings: departureTimings,
         }),
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
 
       if (response.ok) {
-        Alert.alert('Success', data.message);
+        Alert.alert('Success', data.message)
 
         // reset fields
-        setCapacity('');
-        setSelectedRoute(null);
-        setSelectedDriver(null);
+        setCapacity('')
+        setSelectedRoute(null)
+        setSelectedDriver(null)
 
         // 🔥 refresh drivers + routes
-        fetchData();
+        fetchData()
       } else {
-        Alert.alert('Error', data.message);
+        Alert.alert('Error', data.message)
       }
     } catch (error) {
-      Alert.alert('Error', 'Server not reachable');
+      Alert.alert('Error', 'Server not reachable')
     }
 
-    setLoading(false);
-  };
+    setLoading(false)
+  }
 
   return (
     <View
@@ -95,7 +107,7 @@ const AddBus = ({ navigation }) => {
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={26} color="#fff" />
+          <Icon name='arrow-back' size={26} color='#fff' />
         </TouchableOpacity>
 
         <Text style={styles.headerText}>Add Bus</Text>
@@ -107,7 +119,6 @@ const AddBus = ({ navigation }) => {
         contentContainerStyle={{ paddingBottom: hp(5) }}
         showsVerticalScrollIndicator={false}
       >
-
         {/* DRIVER SELECTION */}
         <Text style={[styles.label, { color: theme.colors.text }]}>
           Select Driver
@@ -162,7 +173,7 @@ const AddBus = ({ navigation }) => {
               {item.route_name}
             </Text>
 
-            <Text style={{ color: theme.colors.text, marginTop: 4  }}>
+            <Text style={{ color: theme.colors.text, marginTop: 4 }}>
               {item.source} → {item.destination}
             </Text>
 
@@ -175,14 +186,79 @@ const AddBus = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         ))}
-         {/* Capacity */}
+        {/* DEPARTURE TIMINGS */}
+        <Text style={[styles.label, { color: theme.colors.text }]}>
+          Departure Timings
+        </Text>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
+          <TextInput
+            placeholder='e.g. 2:00 PM'
+            value={departureTime}
+            onChangeText={setDepartureTime}
+            style={[
+              styles.input,
+              {
+                flex: 1,
+                marginBottom: 0,
+                color: theme.colors.text,
+              },
+            ]}
+          />
+
+          <TouchableOpacity
+            onPress={addDepartureTiming}
+            style={{
+              backgroundColor: theme.colors.primary,
+              justifyContent: 'center',
+              paddingHorizontal: 18,
+              borderRadius: 10,
+            }}
+          >
+            <Icon name='add' size={24} color='#fff' />
+          </TouchableOpacity>
+        </View>
+
+        {departureTimings.map((item, index) => (
+          <View
+            key={index}
+            style={{
+              backgroundColor: '#fff',
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 8,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Text>{item}</Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setDepartureTimings(
+                  departureTimings.filter((_, i) => i !== index),
+                )
+              }}
+            >
+              <Icon name='trash' size={18} color='red' />
+            </TouchableOpacity>
+          </View>
+        ))}
+        {/* Capacity */}
         <Text style={[styles.label, { color: theme.colors.text }]}>
           Write Bus Capacty
         </Text>
         <TextInput
-          placeholder="Bus Capacity"
-          placeholderTextColor="#888"
-          keyboardType="numeric"
+          placeholder='Bus Capacity'
+          placeholderTextColor='#888'
+          keyboardType='numeric'
           value={capacity}
           onChangeText={setCapacity}
           style={[styles.input, { color: theme.colors.text }]}
@@ -202,10 +278,10 @@ const AddBus = ({ navigation }) => {
         </TouchableOpacity>
       </ScrollView>
     </View>
-  );
-};
+  )
+}
 
-export default AddBus;
+export default AddBus
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -262,4 +338,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-});
+})

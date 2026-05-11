@@ -57,7 +57,9 @@ const ChangePassword = ({ navigation }) => {
         newPassword: newPass,
       }),
     })
-
+    setOtp('');
+    setNewPass('')
+    setShowPass('')
     const data = await res.json()
 
     Alert.alert(data.message)

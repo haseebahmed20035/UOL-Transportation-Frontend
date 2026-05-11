@@ -83,7 +83,7 @@ const App = () => {
     <View style={{ flex: 1 }}>
       <ThemeProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="AdminDashboard" screenOptions={{ headerShown: false }}>
+        <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Tabs" component={BottomTabs} />
         <Stack.Screen name="MyRoute" component={MyRoute} />

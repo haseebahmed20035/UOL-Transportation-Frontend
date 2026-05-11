@@ -19,24 +19,24 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const loadSavedCredentials = async () => {
-  try {
-    const savedEmail = await AsyncStorage.getItem('savedEmail');
-    const savedPassword = await AsyncStorage.getItem('savedPassword');
+    try {
+      const savedEmail = await AsyncStorage.getItem('savedEmail')
+      const savedPassword = await AsyncStorage.getItem('savedPassword')
 
-    if (savedEmail) setUsername(savedEmail);
-    if (savedPassword) setPassword(savedPassword);
-  } catch (err) {
-    console.log("LOAD ERROR:", err);
+      if (savedEmail) setUsername(savedEmail)
+      if (savedPassword) setPassword(savedPassword)
+    } catch (err) {
+      console.log('LOAD ERROR:', err)
+    }
   }
-};
   useEffect(() => {
-  GoogleSignin.configure({
-    webClientId:
-      '967891107317-2nje8fbbcq60u2l5bpq668brt1qrapol.apps.googleusercontent.com',
-  });
+    GoogleSignin.configure({
+      webClientId:
+        '967891107317-2nje8fbbcq60u2l5bpq668brt1qrapol.apps.googleusercontent.com',
+    })
 
-  loadSavedCredentials();
-}, []);
+    loadSavedCredentials()
+  }, [])
   const getAlertMessage = (value, fallback = 'Something went wrong') => {
     if (typeof value === 'string') return value
 
@@ -87,6 +87,14 @@ const LoginScreen = ({ navigation }) => {
 
       if (data.success) {
         await AsyncStorage.setItem('user', JSON.stringify(data.user))
+
+        if (data.user?.student_id) {
+          await AsyncStorage.setItem(
+            'studentId',
+            data.user.student_id.toString(),
+          )
+        }
+        await AsyncStorage.setItem('user', JSON.stringify(data.user))
         await AsyncStorage.setItem('savedEmail', username)
         await AsyncStorage.setItem('savedPassword', password)
         const role = data.user?.role
@@ -112,64 +120,6 @@ const LoginScreen = ({ navigation }) => {
       Alert.alert(
         'Error',
         getAlertMessage(error?.message || error, 'Something went wrong'),
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ================= GOOGLE LOGIN =================
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true)
-
-      await GoogleSignin.hasPlayServices()
-
-      const userInfo = await GoogleSignin.signIn()
-
-      const email = userInfo.user.email
-
-      console.log('Google Email:', email)
-
-      // 🔥 SEND TO BACKEND
-      const response = await fetch(`${BASE_URL}/auth/google-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      })
-
-      const data = await response.json()
-
-      console.log('GOOGLE LOGIN RESPONSE:', data)
-
-      if (data.success) {
-        const role = data.user.role
-
-        if (role === 'student') {
-          navigation.replace('Tabs')
-        } else if (role === 'driver') {
-          navigation.replace('DriverDashboard')
-        } else if (role === 'admin') {
-          navigation.replace('AdminDashboard')
-        } else {
-          Alert.alert('Error', 'Unknown role')
-        }
-      } else {
-        Alert.alert(
-          'Login Failed',
-          getAlertMessage(data.message, 'User not found'),
-        )
-      }
-    } catch (error) {
-      console.log('GOOGLE ERROR:', error)
-
-      Alert.alert(
-        'Google Sign-In Failed',
-        typeof error?.message === 'string'
-          ? error.message
-          : JSON.stringify(error),
       )
     } finally {
       setLoading(false)
@@ -217,16 +167,6 @@ const LoginScreen = ({ navigation }) => {
           ) : (
             <Text style={styles.LoginBtnText}>Login</Text>
           )}
-        </TouchableOpacity>
-
-        {/* GOOGLE LOGIN */}
-        <Text style={{ marginTop: 35, alignSelf: 'center' }}>OR</Text>
-
-        <TouchableOpacity
-          style={[styles.LoginBtn, { backgroundColor: '#4285F4' }]}
-          onPress={handleGoogleLogin}
-        >
-          <Text style={styles.LoginBtnText}>Login with Google</Text>
         </TouchableOpacity>
       </View>
     </View>
