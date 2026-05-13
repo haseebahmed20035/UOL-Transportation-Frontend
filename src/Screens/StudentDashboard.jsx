@@ -1,670 +1,1420 @@
 import {
   Alert,
+  Animated,
   Image,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  Animated,
-  TextInput,
-} from 'react-native'
-import React, { useState, useContext, useEffect } from 'react'
-import Icon from 'react-native-vector-icons/Ionicons'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { ThemeContext } from '../context/ThemeContext'
+  RefreshControl,
+} from 'react-native';
 
-const StudentDashboard = ({ navigation }) => {
-  const { theme } = useContext(ThemeContext)
-  const [student, setStudent] = useState(null)
-  const [menuVisible, setMenuVisible] = useState(false)
-  const [recentScreens, setRecentScreens] = useState([])
-  const [searchText, setSearchText] = useState('')
-  const fadeAnim = React.useRef(new Animated.Value(0)).current
+import React, {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
-  const fetchStudentData = async () => {
-    try {
-      const userData = await AsyncStorage.getItem('user')
-      const user = JSON.parse(userData)
+import Icon from 'react-native-vector-icons/Ionicons';
 
-      const res = await fetch(`http://192.168.100.100:5000/student/${user.id}`)
+import AsyncStorage
+from '@react-native-async-storage/async-storage';
 
-      const data = await res.json()
+import { ThemeContext }
+from '../context/ThemeContext';
 
-      setStudent(data)
-    } catch (err) {
-      console.log('ERROR:', err)
-    }
-  }
+const StudentDashboard = ({
+  navigation,
+}) => {
+
+  const { theme } =
+    useContext(ThemeContext);
+
+  const [student, setStudent] =
+    useState(null);
+
+  const [menuVisible,
+    setMenuVisible] =
+      useState(false);
+
+  const [recentScreens,
+    setRecentScreens] =
+      useState([]);
+
+  const [searchText,
+    setSearchText] =
+      useState('');
+
+  const [refreshing,
+    setRefreshing] =
+      useState(false);
+
+  const fadeAnim =
+    useRef(
+      new Animated.Value(0)
+    ).current;
+
+  const fetchStudentData =
+    async () => {
+
+      try {
+
+        const userData =
+          await AsyncStorage.getItem(
+            'user'
+          );
+
+        const user =
+          JSON.parse(userData);
+
+        const res =
+          await fetch(
+            `http://192.168.100.100:5000/student/${user.user_id}`
+          );
+
+        const data =
+          await res.json();
+
+        setStudent(data);
+
+      } catch (err) {
+
+        console.log(
+          'ERROR:',
+          err
+        );
+      }
+    };
+
   useEffect(() => {
-    fetchStudentData()
-  }, [])
-  const navigateAndTrack = async screenName => {
-    const time = new Date().toLocaleTimeString()
 
-    const updated = [
-      { name: screenName, time },
-      ...recentScreens.filter(s => s.name !== screenName),
-    ].slice(0, 5)
+    fetchStudentData();
 
-    setRecentScreens(updated)
-    await AsyncStorage.setItem('recentScreens', JSON.stringify(updated))
+    loadRecent();
 
-    navigation.navigate(screenName)
-  }
+  }, []);
 
-  const appScreens = [
-    'MyRoute',
-    'AllRoutes',
-    'BusSchedule',
-    'LiveBusTracking',
-    'ChangeRoute',
-    'RequestForTransport',
-  ]
+  const loadRecent =
+    async () => {
 
-  const filteredScreens = appScreens.filter(screen =>
-    screen.toLowerCase().includes(searchText.toLowerCase()),
-  )
+      const stored =
+        await AsyncStorage.getItem(
+          'recentScreens'
+        );
+
+      if (stored) {
+
+        setRecentScreens(
+          JSON.parse(stored)
+        );
+      }
+    };
+
+  const onRefresh =
+    async () => {
+
+      setRefreshing(true);
+
+      await fetchStudentData();
+
+      setRefreshing(false);
+    };
+
+  const navigateAndTrack =
+    async screenName => {
+
+      const time =
+        new Date()
+          .toLocaleTimeString();
+
+      const updated = [
+        {
+          name: screenName,
+          time,
+        },
+
+        ...recentScreens.filter(
+          s =>
+            s.name !==
+            screenName
+        ),
+      ].slice(0, 5);
+
+      setRecentScreens(updated);
+
+      await AsyncStorage.setItem(
+        'recentScreens',
+        JSON.stringify(updated)
+      );
+
+      navigation.navigate(
+        screenName
+      );
+    };
+
+  const menuAnimation =
+    () => {
+
+      setMenuVisible(
+        !menuVisible
+      );
+
+      Animated.timing(
+        fadeAnim,
+        {
+          toValue:
+            menuVisible
+              ? 0
+              : 1,
+
+          duration: 250,
+
+          useNativeDriver:
+            true,
+        }
+      ).start();
+    };
+
+  const quickActions = [
+    {
+      title:
+        'My Route',
+
+      icon:
+        'navigate',
+
+      color:
+        '#2196F3',
+
+      screen:
+        'MyRoute',
+    },
+
+    {
+      title:
+        'Live Tracking',
+
+      icon:
+        'bus',
+
+      color:
+        '#4CAF50',
+
+      screen:
+        'LiveBusTracking',
+    },
+
+    {
+      title:
+        'Bus Schedule',
+
+      icon:
+        'calendar',
+
+      color:
+        '#FF9800',
+
+      screen:
+        'BusSchedule',
+    },
+
+    {
+      title:
+        'Complaints',
+
+      icon:
+        'chatbox',
+
+      color:
+        '#9C27B0',
+
+      screen:
+        'StudentComplaint',
+    },
+
+    // {
+    //   title:
+    //     'Change Route',
+
+    //   icon:
+    //     'swap-horizontal',
+
+    //   color:
+    //     '#00BCD4',
+
+    //   screen:
+    //     'ChangeRoute',
+    // },
+
+    {
+      title:
+        'Transport Request',
+
+      icon:
+        'document-text',
+
+      color:
+        '#E91E63',
+
+      screen:
+        'RequestForTransport',
+    },
+  ];
+
+  const filteredScreens =
+    quickActions.filter(
+      item =>
+        item.title
+          .toLowerCase()
+          .includes(
+            searchText.toLowerCase()
+          )
+    );
+
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
+      style={[
+        styles.container,
+        {
+          backgroundColor:
+            '#f5f7fb',
+        },
+      ]}>
+
+      <StatusBar
+        backgroundColor={
+          theme.colors.primary
+        }
+        barStyle="light-content"
+      />
+
       {/* HEADER */}
-      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
-        <View style={styles.headerCenter}>
-          <Image source={require('../Images/uol.png')} style={styles.logo} />
-          <Text style={styles.headerText}>UOL Transportation</Text>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor:
+              theme.colors.primary,
+          },
+        ]}>
+
+        <View style={styles.headerLeft}>
+
+          <Image
+            source={require('../Images/uol.png')}
+            style={styles.logo}
+          />
+
+          <View>
+
+            <Text style={styles.headerTitle}>
+              Student Dashboard
+            </Text>
+
+            <Text style={styles.headerSub}>
+              UOL Transportation
+            </Text>
+
+          </View>
+
         </View>
 
         <View style={styles.headerRight}>
-          <TouchableOpacity>
-            <Icon name='help-circle-outline' size={26} color='white' />
-          </TouchableOpacity>
 
-          <TouchableOpacity>
-            <Icon name='notifications-outline' size={26} color='white' />
+          <TouchableOpacity
+            style={styles.iconBtn}>
+
+            <Icon
+              name="notifications-outline"
+              size={24}
+              color="white"
+            />
+
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.avatar}
-            onPress={() => {
-              setMenuVisible(!menuVisible)
-              Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-              }).start()
-            }}
-          >
-            <Text style={styles.avatarText}>
-              {student?.name?.charAt(0) || 'H'}
+            onPress={
+              menuAnimation
+            }>
+
+            <Text
+              style={
+                styles.avatarText
+              }>
+
+              {student?.name
+                ?.charAt(0) ||
+                'S'}
+
             </Text>
+
           </TouchableOpacity>
+
         </View>
+
       </View>
+      {/* DROPDOWN */}
       {menuVisible && (
+
         <Animated.View
           style={[
-            styles.dropdownMenu,
-            { opacity: fadeAnim, transform: [{ scale: fadeAnim }] },
-          ]}
-        >
-          {/* PROFILE HEADER */}
-          <View style={styles.profileSection}>
-            <View style={styles.profileCircle}>
-              <Text style={{ color: '#175812', fontWeight: 'bold' }}>H</Text>
+            styles.dropdown,
+            {
+              opacity:
+                fadeAnim,
+
+              transform: [
+                {
+                  scale:
+                    fadeAnim,
+                },
+              ],
+            },
+          ]}>
+
+          <View
+            style={
+              styles.profileTop
+            }>
+
+            <View
+              style={
+                styles.profileCircle
+              }>
+
+              <Text
+                style={
+                  styles.profileCircleText
+                }>
+
+                {student?.name
+                  ?.charAt(
+                    0
+                  ) || 'S'}
+
+              </Text>
+
             </View>
-            <Text style={styles.profileName}>
-              {student?.name || 'Loading...'}
+
+            <Text
+              style={
+                styles.profileName
+              }>
+
+              {student?.name}
+
             </Text>
+
+            <Text
+              style={
+                styles.profileRole
+              }>
+
+              Student
+
+            </Text>
+
           </View>
 
-          <View style={styles.divider} />
-
-          {/* HELP */}
           <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => {
-              navigateAndTrack('Help')
-            }}
-          >
-            <Icon name='help-circle-outline' size={22} color='#175812' />
-            <Text style={styles.menuText}>Help Center</Text>
-          </TouchableOpacity>
+            style={
+              styles.menuItem
+            }
+            onPress={() =>
+              navigateAndTrack(
+                'MyPersonalInfo'
+              )
+            }>
 
-          {/* SETTINGS */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => {
-              navigateAndTrack('AppSettings')
-            }}
-          >
-            <Icon name='settings-outline' size={22} color='#175812' />
-            <Text style={styles.menuText}>Settings</Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* RECENT */}
-          <Text style={styles.sectionTitle}>Recent Activities</Text>
-
-          <View style={styles.recentContainer}>
-            {recentScreens.length === 0 ? (
-              <Text style={{ fontSize: 12 }}>No Activity</Text>
-            ) : (
-              recentScreens.map((item, index) => (
-                <View key={index} style={styles.activityChip}>
-                  <Text style={{ fontSize: 11 }}>{item.name}</Text>
-                </View>
-              ))
-            )}
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* FINDER */}
-          <Text style={styles.sectionTitle}>App Finder</Text>
-
-          <View style={styles.searchWrapper}>
-            <Icon name='search' size={16} color='gray' />
-            <TextInput
-              placeholder='Search screen...'
-              value={searchText}
-              onChangeText={setSearchText}
-              style={styles.searchBox}
+            <Icon
+              name="person-outline"
+              size={20}
+              color="#175812"
             />
-          </View>
 
-          {filteredScreens.map((screen, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.menuRow}
-              onPress={() => navigateAndTrack(screen)}
-            >
-              <Text style={styles.menuText}>🔍 {screen}</Text>
-            </TouchableOpacity>
-          ))}
+            <Text
+              style={
+                styles.menuText
+              }>
 
-          <View style={styles.divider} />
+              Profile
 
-          {/* SIGN OUT */}
-          <TouchableOpacity
-            style={styles.signOutBtn}
-            onPress={() => {
-              Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-                {
-                  text: 'No',
-                  style: 'cancel',
-                },
-                {
-                  text: 'Yes',
-                  onPress: () => navigation.replace('Login'),
-                },
-              ])
-            }}
-          >
-            <Icon name='log-out-outline' size={22} color='white' />
-            <Text style={{ color: 'white', marginLeft: 6 }}>Sign Out</Text>
+            </Text>
+
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={
+              styles.menuItem
+            }
+            onPress={() =>
+              navigateAndTrack(
+                'AppSettings'
+              )
+            }>
+
+            <Icon
+              name="settings-outline"
+              size={20}
+              color="#175812"
+            />
+
+            <Text
+              style={
+                styles.menuText
+              }>
+
+              Settings
+
+            </Text>
+
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={
+              styles.menuItem
+            }
+            onPress={() =>
+              navigateAndTrack(
+                'Help'
+              )
+            }>
+
+            <Icon
+              name="help-circle-outline"
+              size={20}
+              color="#175812"
+            />
+
+            <Text
+              style={
+                styles.menuText
+              }>
+
+              Help Center
+
+            </Text>
+
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={
+              styles.logoutBtn
+            }
+            onPress={() => {
+
+              Alert.alert(
+                'Logout',
+                'Are you sure?',
+                [
+                  {
+                    text:
+                      'Cancel',
+
+                    style:
+                      'cancel',
+                  },
+
+                  {
+                    text:
+                      'Logout',
+
+                    onPress:
+                      () =>
+                        navigation.replace(
+                          'Login'
+                        ),
+                  },
+                ]
+              );
+            }}>
+
+            <Icon
+              name="log-out-outline"
+              size={20}
+              color="white"
+            />
+
+            <Text
+              style={
+                styles.logoutText
+              }>
+
+              Logout
+
+            </Text>
+
+          </TouchableOpacity>
+
         </Animated.View>
       )}
-      {/* CONTENT */}
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* ROUTE INFORMATION */}
+
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={
+              refreshing
+            }
+            onRefresh={
+              onRefresh
+            }
+          />
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
+        contentContainerStyle={{
+          paddingBottom: 40,
+        }}>
+
+        {/* WELCOME CARD */}
         <View
-          style={[styles.card, { backgroundColor: theme.colors.background }]}
-        >
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-            Route Information
-          </Text>
+          style={
+            styles.welcomeCard
+          }>
 
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('MyRoute')
-              }}
-            >
+          <View
+            style={{
+              flex: 1,
+            }}>
+
+            <Text
+              style={
+                styles.welcomeTitle
+              }>
+
+              Welcome,
+              {' '}
+              {student?.name ||
+                'Student'}
+              👋
+
+            </Text>
+
+            <Text
+              style={
+                styles.welcomeSubtitle
+              }>
+
+              Bus arriving in
+              12 mins.
+              Your route is
+              active today.
+
+            </Text>
+
+            <View
+              style={
+                styles.liveChip
+              }>
+
               <Icon
-                name='navigate-outline'
-                size={26}
-                color={theme.colors.icon}
+                name="radio-button-on"
+                size={12}
+                color="#4CAF50"
               />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                My Route
-              </Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('AllRoutes')
-              }}
-            >
-              <Icon name='map-outline' size={26} color={theme.colors.icon} />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                All Routes
-              </Text>
-            </TouchableOpacity>
+              <Text
+                style={
+                  styles.liveChipText
+                }>
 
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('BusSchedule')
-              }}
-            >
-              <Icon
-                name='calendar-outline'
-                size={26}
-                color={theme.colors.icon}
-              />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                Bus Schedule
-              </Text>
-            </TouchableOpacity>
+                Transport Active
 
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('LiveBusTracking')
-              }}
-            >
-              <Icon name='bus-outline' size={26} color={theme.colors.icon} />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                Live Bus Tracking
               </Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('ChangeRoute')
-              }}
-            >
-              <Icon
-                name='swap-horizontal-outline'
-                size={26}
-                color={theme.colors.icon}
-              />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                Change Route
-              </Text>
-            </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('RequestForTransport')
-              }}
-            >
-              <Icon
-                name='document-text-outline'
-                size={26}
-                color={theme.colors.icon}
-              />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                Request For Transport
-              </Text>
-            </TouchableOpacity>
           </View>
+
+          <Image
+            source={{
+              uri:
+                'https://cdn-icons-png.flaticon.com/512/3135/3135755.png',
+            }}
+            style={
+              styles.studentImage
+            }
+          />
+
         </View>
 
-        {/* PERSONAL DETAILS */}
+        {/* LIVE TRACKING */}
         <View
-          style={[styles.card, { backgroundColor: theme.colors.background }]}
-        >
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-            Personal Details
-          </Text>
+          style={
+            styles.liveCard
+          }>
 
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('MyPersonalInfo')
-              }}
-            >
-              <Icon name='person-outline' size={26} color={theme.colors.icon} />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                My Personal Information
-              </Text>
-            </TouchableOpacity>
+          <View
+            style={
+              styles.liveTop
+            }>
 
             <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('FeeVoucher')
-              }}
-            >
-              <Icon
-                name='receipt-outline'
-                size={26}
-                color={theme.colors.icon}
-              />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                Fee Voucher
+            onPress={()=>{navigateAndTrack('LiveBusTracking')}}>
+
+              <Text
+                style={
+                  styles.liveTitle
+                }>
+
+                Live Bus Status
+
               </Text>
+
+              <Text
+                style={
+                  styles.liveSub
+                }>
+
+                Bus #BUS-101
+
+              </Text>
+
             </TouchableOpacity>
+
+            <View
+              style={
+                styles.liveBadge
+              }>
+
+              <Text
+                style={
+                  styles.liveBadgeText
+                }>
+
+                LIVE
+
+              </Text>
+
+            </View>
+
           </View>
+
+          <View
+            style={
+              styles.liveRow
+            }>
+
+            <View
+              style={
+                styles.liveItem
+              }>
+
+              <Icon
+                name="location"
+                size={22}
+                color="#2196F3"
+              />
+
+              <Text
+                style={
+                  styles.liveItemTitle
+                }>
+
+                Current Stop
+
+              </Text>
+
+              <Text
+                style={
+                  styles.liveItemValue
+                }>
+
+                Johar Town
+
+              </Text>
+
+            </View>
+
+            <View
+              style={
+                styles.liveItem
+              }>
+
+              <Icon
+                name="time"
+                size={22}
+                color="#FF9800"
+              />
+
+              <Text
+                style={
+                  styles.liveItemTitle
+                }>
+
+                ETA
+
+              </Text>
+
+              <Text
+                style={
+                  styles.liveItemValue
+                }>
+
+                12 mins
+
+              </Text>
+
+            </View>
+
+          </View>
+
         </View>
 
-        {/* APP SETTINGS */}
+        {/* QUICK ACTIONS */}
         <View
-          style={[styles.card, { backgroundColor: theme.colors.background }]}
-        >
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-            App Settings
+          style={
+            styles.sectionHeader
+          }>
+
+          <Text
+            style={
+              styles.sectionTitle
+            }>
+
+            Quick Actions
+
           </Text>
 
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('AppSettings')
-              }}
-            >
-              <Icon
-                name='settings-outline'
-                size={26}
-                color={theme.colors.icon}
-              />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                App Settings
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.colors.box,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => {
-                navigateAndTrack('Help')
-              }}
-            >
-              <Icon
-                name='help-circle-outline'
-                size={30}
-                color={theme.colors.icon}
-              />
-              <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                Help
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
+
+        <View style={styles.grid}>
+
+          {quickActions.map(
+            item => (
+
+              <TouchableOpacity
+                key={
+                  item.title
+                }
+                style={
+                  styles.actionCard
+                }
+                onPress={() =>
+                  navigateAndTrack(
+                    item.screen
+                  )
+                }>
+
+                <View
+                  style={[
+                    styles.iconBox,
+                    {
+                      backgroundColor:
+                        item.color,
+                    },
+                  ]}>
+
+                  <Icon
+                    name={
+                      item.icon
+                    }
+                    size={28}
+                    color="white"
+                  />
+
+                </View>
+
+                <Text
+                  style={
+                    styles.actionTitle
+                  }>
+
+                  {item.title}
+
+                </Text>
+
+              </TouchableOpacity>
+            )
+          )}
+
+        </View>
+
+        {/* SEARCH */}
+        <View
+          style={
+            styles.searchCard
+          }>
+
+          <View
+            style={
+              styles.searchWrapper
+            }>
+
+            <Icon
+              name="search"
+              size={18}
+              color="gray"
+            />
+
+            <TextInput
+              placeholder="Search feature..."
+              value={
+                searchText
+              }
+              onChangeText={
+                setSearchText
+              }
+              style={
+                styles.searchInput
+              }
+            />
+
+          </View>
+
+          {searchText !==
+            '' && (
+
+            filteredScreens.map(
+              (
+                item,
+                index
+              ) => (
+
+                <TouchableOpacity
+                  key={
+                    index
+                  }
+                  style={
+                    styles.searchResult
+                  }
+                  onPress={() =>
+                    navigateAndTrack(
+                      item.screen
+                    )
+                  }>
+
+                  <Text
+                    style={{
+                      color:
+                        '#111',
+                    }}>
+
+                    🔍{' '}
+                    {
+                      item.title
+                    }
+
+                  </Text>
+
+                </TouchableOpacity>
+              )
+            )
+          )}
+
+        </View>
+
+        {/* RECENT */}
+        <View
+          style={
+            styles.sectionHeader
+          }>
+
+          <Text
+            style={
+              styles.sectionTitle
+            }>
+
+            Recent Activities
+
+          </Text>
+
+        </View>
+
+        <View
+          style={
+            styles.recentCard
+          }>
+
+          {recentScreens.length ===
+          0 ? (
+
+            <Text
+              style={
+                styles.noRecentText
+              }>
+
+              No recent activities
+
+            </Text>
+
+          ) : (
+
+            recentScreens.map(
+              (
+                item,
+                index
+              ) => (
+
+                <View
+                  key={
+                    index
+                  }
+                  style={
+                    styles.recentItem
+                  }>
+
+                  <Icon
+                    name="time-outline"
+                    size={18}
+                    color="#175812"
+                  />
+
+                  <View>
+
+                    <Text
+                      style={
+                        styles.recentText
+                      }>
+
+                      {
+                        item.name
+                      }
+
+                    </Text>
+
+                    <Text
+                      style={{
+                        color:
+                          '#777',
+                        fontSize: 11,
+                        marginLeft: 10,
+                        marginTop: 2,
+                      }}>
+
+                      {
+                        item.time
+                      }
+
+                    </Text>
+
+                  </View>
+
+                </View>
+              )
+            )
+          )}
+
+        </View>
+
       </ScrollView>
+
     </View>
-  )
-}
+  );
+};
 
-export default StudentDashboard
+export default StudentDashboard;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7F6',
-  },
+const styles =
+  StyleSheet.create({
 
-  /* HEADER */
-  header: {
-    flexDirection: 'row',
-    backgroundColor: '#175812',
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+    container: {
+      flex: 1,
+    },
 
-  headerCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
+    header: {
+      paddingHorizontal: 18,
+      paddingTop: 18,
+      paddingBottom: 16,
+      flexDirection: 'row',
+      justifyContent:
+        'space-between',
+      alignItems: 'center',
+    },
 
-  logo: {
-    height: 30,
-    width: 30,
-    resizeMode: 'contain',
-  },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
 
-  headerText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+    logo: {
+      width: 38,
+      height: 38,
+      resizeMode:
+        'contain',
+      marginRight: 10,
+    },
 
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
+    headerTitle: {
+      color: 'white',
+      fontSize: 18,
+      fontWeight:
+        'bold',
+    },
 
-  avatar: {
-    backgroundColor: 'white',
-    height: 30,
-    width: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+    headerSub: {
+      color: '#d8f3dc',
+      fontSize: 12,
+      marginTop: 2,
+    },
 
-  avatarText: {
-    fontWeight: 'bold',
-    color: '#175812',
-  },
+    headerRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
 
-  /* CONTENT */
-  scrollContainer: {
-    padding: 12,
-  },
+    iconBtn: {
+      marginRight: 6,
+    },
 
-  card: {
-    backgroundColor: 'white',
-    marginBottom: 20,
-    padding: 15,
-    borderRadius: 12,
-    elevation: 2,
-  },
+    avatar: {
+      backgroundColor:
+        'white',
+      height: 40,
+      width: 40,
+      borderRadius: 20,
+      justifyContent:
+        'center',
+      alignItems:
+        'center',
+    },
 
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#175812',
-  },
+    avatarText: {
+      color: '#175812',
+      fontWeight:
+        'bold',
+      fontSize: 16,
+    },
 
-  /* GRID */
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
+    dropdown: {
+      position:
+        'absolute',
+      top: 80,
+      right: 18,
+      backgroundColor:
+        'white',
+      width: 230,
+      borderRadius: 22,
+      padding: 16,
+      elevation: 10,
+      zIndex: 999,
+    },
 
-  box: {
-    width: '48%',
-    backgroundColor: '#7FAF8A',
-    borderColor: 'rgba(26,128,63,0.5)',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 18,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 6,
-  },
+    profileTop: {
+      alignItems:
+        'center',
+      marginBottom: 16,
+    },
 
-  boxText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F2F1B',
-    textAlign: 'center',
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 70,
-    right: 20,
-    backgroundColor: '#fff',
-    width: 220,
-    borderRadius: 12,
-    padding: 10,
-    elevation: 5,
-    zIndex: 999,
-  },
+    profileCircle: {
+      width: 65,
+      height: 65,
+      borderRadius: 40,
+      backgroundColor:
+        '#e8f5e9',
+      justifyContent:
+        'center',
+      alignItems:
+        'center',
+    },
 
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-  },
+    profileCircleText: {
+      color: '#175812',
+      fontSize: 24,
+      fontWeight:
+        'bold',
+    },
 
-  menuText: {
-    fontSize: 14,
-  },
+    profileName: {
+      fontSize: 17,
+      fontWeight:
+        'bold',
+      marginTop: 10,
+    },
 
-  menuHeading: {
-    fontWeight: 'bold',
-    marginVertical: 5,
-  },
-  searchBox: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 5,
-    marginVertical: 5,
-  },
-  profileSection: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
+    profileRole: {
+      color: '#666',
+      marginTop: 4,
+    },
 
-  profileCircle: {
-    height: 40,
-    width: 40,
-    backgroundColor: '#E6F2EA',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+    menuItem: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      paddingVertical: 12,
+    },
 
-  profileName: {
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
+    menuText: {
+      marginLeft: 12,
+      fontSize: 15,
+      color: '#111',
+    },
 
-  divider: {
-    height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 6,
-  },
+    logoutBtn: {
+      backgroundColor:
+        '#e53935',
+      marginTop: 12,
+      borderRadius: 16,
+      height: 50,
+      justifyContent:
+        'center',
+      alignItems:
+        'center',
+      flexDirection:
+        'row',
+    },
 
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
+    logoutText: {
+      color: 'white',
+      marginLeft: 8,
+      fontWeight:
+        'bold',
+    },
 
-  sectionTitle: {
-    fontWeight: 'bold',
-    fontSize: 12,
-    marginVertical: 4,
-    color: '#175812',
-  },
+    welcomeCard: {
+      backgroundColor:
+        '#175812',
+      margin: 18,
+      borderRadius: 28,
+      padding: 22,
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      elevation: 6,
+    },
 
-  recentContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
+    welcomeTitle: {
+      color: 'white',
+      fontSize: 24,
+      fontWeight:
+        'bold',
+    },
 
-  activityChip: {
-    backgroundColor: '#E6F2EA',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
+    welcomeSubtitle: {
+      color: '#d8f3dc',
+      marginTop: 10,
+      lineHeight: 22,
+      width: '90%',
+    },
 
-  searchWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 6,
-  },
+    liveChip: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      backgroundColor:
+        'rgba(255,255,255,0.15)',
+      alignSelf:
+        'flex-start',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 100,
+      marginTop: 16,
+    },
 
-  searchBox: {
-    flex: 1,
-    paddingVertical: 3,
-    marginLeft: 4,
-  },
+    liveChipText: {
+      color: 'white',
+      marginLeft: 6,
+      fontWeight:
+        '600',
+    },
 
-  signOutBtn: {
-    backgroundColor: '#D9534F',
-    padding: 8,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-})
+    studentImage: {
+      width: 85,
+      height: 85,
+      resizeMode:
+        'contain',
+    },
+
+    liveCard: {
+      backgroundColor:
+        'white',
+      marginHorizontal: 18,
+      borderRadius: 24,
+      padding: 20,
+      elevation: 4,
+    },
+
+    liveTop: {
+      flexDirection:
+        'row',
+      justifyContent:
+        'space-between',
+      alignItems:
+        'center',
+    },
+
+    liveTitle: {
+      fontSize: 18,
+      fontWeight:
+        'bold',
+      color: '#111',
+    },
+
+    liveSub: {
+      color: '#666',
+      marginTop: 4,
+    },
+
+    liveBadge: {
+      backgroundColor:
+        '#e53935',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 100,
+    },
+
+    liveBadgeText: {
+      color: 'white',
+      fontWeight:
+        'bold',
+    },
+
+    liveRow: {
+      flexDirection:
+        'row',
+      justifyContent:
+        'space-between',
+      marginTop: 22,
+    },
+
+    liveItem: {
+      width: '48%',
+      backgroundColor:
+        '#f5f7fb',
+      borderRadius: 18,
+      padding: 16,
+      alignItems:
+        'center',
+    },
+
+    liveItemTitle: {
+      marginTop: 10,
+      color: '#666',
+    },
+
+    liveItemValue: {
+      marginTop: 6,
+      fontWeight:
+        'bold',
+      fontSize: 16,
+      color: '#111',
+    },
+
+    sectionHeader: {
+      marginHorizontal: 18,
+      marginTop: 28,
+      marginBottom: 14,
+    },
+
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight:
+        'bold',
+      color: '#111',
+    },
+
+    grid: {
+      flexDirection:
+        'row',
+      flexWrap: 'wrap',
+      justifyContent:
+        'space-between',
+      paddingHorizontal: 18,
+    },
+
+    actionCard: {
+      width: '48%',
+      backgroundColor:
+        'white',
+      borderRadius: 24,
+      paddingVertical: 24,
+      alignItems:
+        'center',
+      marginBottom: 16,
+      elevation: 4,
+    },
+
+    iconBox: {
+      width: 65,
+      height: 65,
+      borderRadius: 20,
+      justifyContent:
+        'center',
+      alignItems:
+        'center',
+    },
+
+    actionTitle: {
+      marginTop: 14,
+      fontWeight:
+        '700',
+      fontSize: 15,
+      color: '#111',
+      textAlign:
+        'center',
+    },
+
+    searchCard: {
+      backgroundColor:
+        'white',
+      marginHorizontal: 18,
+      marginTop: 10,
+      borderRadius: 24,
+      padding: 18,
+      elevation: 4,
+    },
+
+    searchWrapper: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      backgroundColor:
+        '#f5f7fb',
+      borderRadius: 16,
+      paddingHorizontal: 14,
+    },
+
+    searchInput: {
+      flex: 1,
+      marginLeft: 6,
+      color: '#111',
+    },
+
+    searchResult: {
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderColor:
+        '#eee',
+    },
+
+    recentCard: {
+      backgroundColor:
+        'white',
+      marginHorizontal: 18,
+      borderRadius: 24,
+      padding: 18,
+      elevation: 4,
+    },
+
+    recentItem: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      marginBottom: 14,
+    },
+
+    recentText: {
+      marginLeft: 10,
+      color: '#333',
+      fontWeight:
+        '500',
+    },
+
+    noRecentText: {
+      color: '#777',
+      textAlign:
+        'center',
+    },
+  });

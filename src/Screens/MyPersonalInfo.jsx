@@ -15,7 +15,7 @@ const MyPersonalInfo = ({ navigation }) => {
       const userData = await AsyncStorage.getItem('user')
       const user = JSON.parse(userData)
 
-      const res = await fetch(`http://192.168.100.100:5000/student/${user.id}`)
+      const res = await fetch(`http://192.168.100.100:5000/student/${user.user_id}`)
 
       const data = await res.json()
 
@@ -45,10 +45,10 @@ const MyPersonalInfo = ({ navigation }) => {
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={26} color={theme.colors.icon} />
+          <Icon name='arrow-back' size={26} color={theme.colors.background} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.icon }]}>
+        <Text style={[styles.headerText, { color: theme.colors.background }]}>
           My Personal Information
         </Text>
 

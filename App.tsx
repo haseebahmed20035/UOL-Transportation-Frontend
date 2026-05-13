@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './src/Screens/LoginScreen'
@@ -25,8 +25,6 @@ import Help from './src/Screens/Help'
 import StudentManage from './src/Screens/StudentManage'
 import ManageDrivers from './src/Screens/ManageDrivers'
 import AllLiveTracking from './src/Screens/AllLiveTracking'
-import AssignRoutes from './src/Screens/AssignRoutes'
-import AllSchedule from './src/Screens/AllSchedule'
 import ManageBuses from './src/Screens/ManageBuses'
 import ManageRoutes from './src/Screens/ManageRoutes'
 import SendNotification from './src/Screens/SendNotification'
@@ -47,8 +45,12 @@ import StudentAttendance from './src/Screens/StudentAttendance'
 import StudentHistory from './src/Screens/StudentHistory'
 import AddStudents from './src/Screens/AddStudents'
 import ChangePassword from './src/Screens/changePassword'
+import StudentComplaint from './src/Screens/StudentComplaint'
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
+import messaging
+from '@react-native-firebase/messaging';
+import { Alert } from 'react-native';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -79,6 +81,31 @@ function BottomTabs() {
 }
 
 const App = () => {
+
+  useEffect(() => {
+
+    const unsubscribe =
+      messaging().onMessage(
+        async remoteMessage => {
+
+          console.log(
+            '🔥 FOREGROUND MESSAGE:',
+            remoteMessage
+          );
+
+          Alert.alert(
+            remoteMessage?.notification?.title ||
+              'Notification',
+
+            remoteMessage?.notification?.body ||
+              'New message'
+          );
+        }
+      );
+
+    return () => unsubscribe();
+
+  }, []);
   return (
     <View style={{ flex: 1 }}>
       <ThemeProvider>
@@ -104,8 +131,6 @@ const App = () => {
         <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
         <Stack.Screen name="StudentManage" component={StudentManage} />
         <Stack.Screen name="AllLiveTracking" component={AllLiveTracking} />
-        <Stack.Screen name="AllSchedule" component={AllSchedule} />
-        <Stack.Screen name="AssignRoutes" component={AssignRoutes} />
         <Stack.Screen name="ManageBuses" component={ManageBuses} />
         <Stack.Screen name="ManageDrivers" component={ManageDrivers} />
         <Stack.Screen name="ManageRequests" component={ManageRequests} />
@@ -127,6 +152,7 @@ const App = () => {
         <Stack.Screen name="StudentHistory" component={StudentHistory} />
         <Stack.Screen name="AddStudents" component={AddStudents} />
         <Stack.Screen name="ChangePassword" component={ChangePassword} />
+        <Stack.Screen name="StudentComplaint" component={StudentComplaint} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

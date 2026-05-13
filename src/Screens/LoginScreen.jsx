@@ -11,6 +11,8 @@ import {
 import React, { useState, useEffect } from 'react'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { registerDeviceToken }
+from '../services/notificationService';
 
 const BASE_URL = 'http://192.168.100.100:5000/api' // 🔥 your IP
 
@@ -87,6 +89,7 @@ const LoginScreen = ({ navigation }) => {
 
       if (data.success) {
         await AsyncStorage.setItem('user', JSON.stringify(data.user))
+        await registerDeviceToken(data.user.id);
 
         if (data.user?.student_id) {
           await AsyncStorage.setItem(
@@ -128,94 +131,172 @@ const LoginScreen = ({ navigation }) => {
 
   // ================= UI =================
   return (
-    <View style={{ padding: 27 }}>
-      <View style={styles.Body}>
-        <Image
-          source={require('../Images/logo.png')}
-          style={{ width: 200, resizeMode: 'contain', alignSelf: 'center' }}
-        />
+    <View style={styles.container}>
+    
+    {/* TOP GREEN AREA */}
+    <View style={styles.topContainer}>
+      <Image
+        source={require('../Images/logo.png')}
+        style={styles.logo}
+      />
 
-        <Text style={styles.mainHeading}>UOL Transportation App</Text>
-        <Text style={styles.subHeading}>
-          Enter admin details OR use Google login
-        </Text>
+      <Text style={styles.mainHeading}>
+        UOL Transportation
+      </Text>
 
-        {/* ADMIN LOGIN */}
-        <View style={{ gap: 12, paddingHorizontal: 10 }}>
-          <View style={styles.textBox}>
-            <TextInput
-              placeholder='Email'
-              value={username}
-              onChangeText={setUsername}
-            />
-          </View>
-
-          <View style={styles.textBox}>
-            <TextInput
-              placeholder='Password'
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={{ color: 'black' }}
-            />
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.LoginBtn} onPress={handleAdminLogin}>
-          {loading ? (
-            <ActivityIndicator color='white' />
-          ) : (
-            <Text style={styles.LoginBtnText}>Login</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.subTitle}>
+        Smart Campus Transport System
+      </Text>
     </View>
+
+    {/* LOGIN CARD */}
+    <View style={styles.card}>
+
+      <Text style={styles.welcomeText}>
+        Welcome Back 👋
+      </Text>
+
+      <Text style={styles.loginText}>
+        Login to continue your journey
+      </Text>
+
+      {/* EMAIL */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          placeholder='University Email'
+          placeholderTextColor='#888'
+          value={username}
+          onChangeText={setUsername}
+          style={styles.input}
+        />
+      </View>
+
+      {/* PASSWORD */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          placeholder='Password'
+          placeholderTextColor='#888'
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+        />
+      </View>
+
+      {/* LOGIN BUTTON */}
+      <TouchableOpacity
+        style={styles.loginBtn}
+        onPress={handleAdminLogin}
+        activeOpacity={0.85}
+      >
+        {loading ? (
+          <ActivityIndicator color='white' />
+        ) : (
+          <Text style={styles.loginBtnText}>
+            Login
+          </Text>
+        )}
+      </TouchableOpacity>
+
+    </View>
+  </View>
   )
 }
 
 export default LoginScreen
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f4f7fb',
+  },
+
+  topContainer: {
+  backgroundColor: '#0f5c12',
+  height: 360,
+  borderBottomLeftRadius: 45,
+  borderBottomRightRadius: 45,
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingHorizontal: 30,
+},
+
+ logo: {
+  width: 200,
+  height: 140,
+  resizeMode: 'contain',
+  marginBottom: 10,
+},
+
   mainHeading: {
-    color: '#113d1ece',
-    textAlign: 'center',
-    fontSize: 25,
-    fontWeight: 'bold',
-  },
-  Body: {
-    backgroundColor: 'white',
-    elevation: 2,
-    minHeight: 700,
-    padding: 10,
-    borderRadius: 10,
-  },
-  subHeading: {
-    textAlign: 'center',
-    marginTop: 15,
-    color: '#113d1eef',
-    marginBottom: 40,
-  },
-  textBox: {
-    borderWidth: 1,
-    borderColor: 'lightgray',
-    minHeight: 48,
-    justifyContent: 'center',
-    borderRadius: 2,
-    paddingHorizontal: 10,
-  },
-  LoginBtn: {
-    marginTop: 20,
-    backgroundColor: '#113d1eef',
-    width: '90%',
-    alignSelf: 'center',
-    height: 48,
-    borderRadius: 10,
-    justifyContent: 'center',
-  },
-  LoginBtnText: {
     color: 'white',
-    textAlign: 'center',
+    fontSize: 30,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+
+  subTitle: {
+    color: '#d8f3dc',
+    marginTop: 10,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+
+  card: {
+    backgroundColor: 'white',
+    marginHorizontal: 22,
+    marginTop: -55,
+    borderRadius: 30,
+    padding: 24,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+  },
+
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#111',
+  },
+
+  loginText: {
+    color: '#666',
+    marginTop: 8,
+    marginBottom: 28,
+    fontSize: 15,
+  },
+
+  inputContainer: {
+    backgroundColor: '#f4f7fb',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    marginBottom: 18,
+    height: 58,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e6ebf2',
+  },
+
+  input: {
+    color: '#111',
+    fontSize: 16,
+  },
+
+  loginBtn: {
+    backgroundColor: '#0f5c12',
+    height: 58,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    elevation: 4,
+  },
+
+  loginBtnText: {
+    color: 'white',
     fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 })
