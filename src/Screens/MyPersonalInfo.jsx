@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { routesByDay, getTodayId } from '../data/RouteModel'
 import { ThemeContext } from '../context/ThemeContext'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const MyPersonalInfo = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -15,7 +16,8 @@ const MyPersonalInfo = ({ navigation }) => {
       const userData = await AsyncStorage.getItem('user')
       const user = JSON.parse(userData)
 
-      const res = await fetch(`http://192.168.100.100:5000/student/${user.user_id}`)
+      // const res = await fetch(`http://192.168.100.100:5000/student/${user.user_id}`)
+      const res = await fetch(`${BASE_URL}/${endPoints.student}/${user.user_id}`)
 
       const data = await res.json()
 

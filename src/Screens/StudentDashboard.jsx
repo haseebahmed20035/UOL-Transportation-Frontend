@@ -26,6 +26,7 @@ from '@react-native-async-storage/async-storage';
 
 import { ThemeContext }
 from '../context/ThemeContext';
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const StudentDashboard = ({
   navigation,
@@ -73,7 +74,7 @@ const StudentDashboard = ({
 
         const res =
           await fetch(
-            `http://192.168.100.100:5000/student/${user.user_id}`
+            `${BASE_URL}/${endPoints}/${user.user_id}`
           );
 
         const data =

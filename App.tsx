@@ -46,6 +46,10 @@ import StudentHistory from './src/Screens/StudentHistory'
 import AddStudents from './src/Screens/AddStudents'
 import ChangePassword from './src/Screens/changePassword'
 import StudentComplaint from './src/Screens/StudentComplaint'
+import DriverList from './src/Screens/DriverList'
+import AddDriver from './src/Screens/AddDriver'
+import DeleteDriver from './src/Screens/DeleteDriver'
+import DriverPersonalInfo from './src/Screens/DriverPersonalInfo'
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
 import messaging
@@ -153,6 +157,10 @@ const App = () => {
         <Stack.Screen name="AddStudents" component={AddStudents} />
         <Stack.Screen name="ChangePassword" component={ChangePassword} />
         <Stack.Screen name="StudentComplaint" component={StudentComplaint} />
+        <Stack.Screen name="DriverList" component={DriverList} />
+        <Stack.Screen name="AddDriver" component={AddDriver} />
+        <Stack.Screen name="DeleteDriver" component={DeleteDriver} />
+        <Stack.Screen name="DriverPersonalInfo" component={DriverPersonalInfo} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

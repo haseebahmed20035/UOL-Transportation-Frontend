@@ -71,10 +71,10 @@ const ChangePassword = ({ navigation }) => {
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={theme.colors.icon} />
+          <Icon name="arrow-back" size={24} color={theme.colors.background} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.icon }]}>
+        <Text style={[styles.headerText, { color: theme.colors.background }]}>
           Change Password
         </Text>
 

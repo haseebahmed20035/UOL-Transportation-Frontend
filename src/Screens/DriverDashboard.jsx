@@ -171,7 +171,7 @@ const DriverDashboard = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => navigateAndTrack('MyPersonalInfo')}
+            onPress={() => navigateAndTrack('DriverPersonalInfo')}
           >
             <Icon name='person-outline' size={20} color='#175812' />
 
