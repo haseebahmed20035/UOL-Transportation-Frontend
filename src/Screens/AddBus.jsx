@@ -11,6 +11,7 @@ import React, { useState, useContext, useEffect } from 'react'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { ThemeContext } from '../context/ThemeContext'
 import { Dimensions } from 'react-native'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const AddBus = ({ navigation }) => {
   const { width, height } = Dimensions.get('window')
@@ -32,13 +33,13 @@ const AddBus = ({ navigation }) => {
   // ✅ Fetch routes
   const fetchData = () => {
     // routes
-    fetch('http://192.168.100.100:5000/routes')
+    fetch(`${BASE_URL}/${endPoints.routes}`)
       .then(res => res.json())
       .then(data => setRoutes(data))
       .catch(err => console.log('Route error:', err))
 
     // drivers
-    fetch('http://192.168.100.100:5000/available-drivers')
+    fetch(`${BASE_URL}/${endPoints.availableDrivers}`)
       .then(res => res.json())
       .then(data => setDrivers(data))
       .catch(err => console.log('Driver error:', err))
@@ -67,7 +68,7 @@ const AddBus = ({ navigation }) => {
     setLoading(true)
 
     try {
-      const response = await fetch('http://192.168.100.100:5000/add-bus', {
+      const response = await fetch(`${BASE_URL}/${endPoints.addBus}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

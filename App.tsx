@@ -37,6 +37,8 @@ import ViewRoutes from './src/Screens/ViewRoutes'
 import AddRoutes from './src/Screens/AddRoutes'
 import UpdateRoutes from './src/Screens/UpdateRoutes'
 import DeleteRoutes from './src/Screens/DeleteRoutes'
+import TripControl from './src/Screens/TripControl'
+import DriverMyRoute from './src/Screens/DriverMyRoute'
 import BusList from './src/Screens/BusList'
 import StudentsReq from './src/Screens/StudentsReq'
 import AllStudents from './src/Screens/AllStudents'
@@ -61,7 +63,7 @@ const Tab = createBottomTabNavigator();
 function BottomTabs() {
   return (
     <Tab.Navigator
-  screenOptions={({route}) => ({
+      screenOptions={({route}) => ({
   headerShown:false,
   tabBarIcon: ({color, size}) => {
 
@@ -161,6 +163,8 @@ const App = () => {
         <Stack.Screen name="AddDriver" component={AddDriver} />
         <Stack.Screen name="DeleteDriver" component={DeleteDriver} />
         <Stack.Screen name="DriverPersonalInfo" component={DriverPersonalInfo} />
+        <Stack.Screen name="DriverMyRoute" component={DriverMyRoute} />
+        <Stack.Screen name="TripControl" component={TripControl} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

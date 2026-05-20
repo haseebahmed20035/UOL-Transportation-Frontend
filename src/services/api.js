@@ -1,7 +1,7 @@
-const BASE_URL = "http://192.168.1.10:5000/api";
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 export const loginUser = async (data) => {
-  const response = await fetch(`${BASE_URL}/auth/login`, {
+  const response = await fetch(`${BASE_URL}/${endPoints.login}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

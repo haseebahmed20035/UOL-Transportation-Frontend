@@ -13,8 +13,9 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { registerDeviceToken }
 from '../services/notificationService';
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
-const BASE_URL = 'http://192.168.100.100:5000/api' // 🔥 your IP
+// const BASE_URL = 'http://192.168.100.100:5000/api' // 🔥 your IP
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('')
@@ -72,7 +73,7 @@ const LoginScreen = ({ navigation }) => {
       setLoading(true)
       await AsyncStorage.setItem('savedEmail', username)
       await AsyncStorage.setItem('savedPassword', password)
-      const response = await fetch(`${BASE_URL}/auth/login`, {
+      const response = await fetch(`${endPoints.loginBaseUrl}/${endPoints.login}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

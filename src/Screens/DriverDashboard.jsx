@@ -9,22 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-
 import React, { useContext, useEffect, useRef, useState } from 'react'
-
 import Icon from 'react-native-vector-icons/Ionicons'
-
 import AsyncStorage from '@react-native-async-storage/async-storage'
-
 import { ThemeContext } from '../context/ThemeContext'
 
 const DriverDashboard = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
-
   const [menuVisible, setMenuVisible] = useState(false)
-
   const fadeAnim = useRef(new Animated.Value(0)).current
-
   const [recentScreens, setRecentScreens] = useState([])
 
   useEffect(() => {
@@ -64,17 +57,10 @@ const DriverDashboard = ({ navigation }) => {
 
   const actionCards = [
     {
-      title: 'Start Ride',
+      title: 'Trip Control',
       icon: 'play-circle',
       color: '#4CAF50',
-      screen: 'StartRide',
-    },
-
-    {
-      title: 'Stop Ride',
-      icon: 'stop-circle',
-      color: '#F44336',
-      screen: 'StopRide',
+      screen: 'TripControl',
     },
 
     {
@@ -85,10 +71,10 @@ const DriverDashboard = ({ navigation }) => {
     },
 
     {
-      title: 'Today Route',
+      title: 'My Route',
       icon: 'map',
       color: '#FF9800',
-      screen: 'MyRoute',
+      screen: 'DriverMyRoute',
     },
 
     {
