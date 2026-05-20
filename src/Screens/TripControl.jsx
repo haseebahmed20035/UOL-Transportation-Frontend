@@ -12,31 +12,51 @@ import {
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Icon from 'react-native-vector-icons/Ionicons'
-import MapView, { Marker, Polyline } from 'react-native-maps'
-import Geolocation from 'react-native-geolocation-service'
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
+import Geolocation from '@react-native-community/geolocation'
 import { ThemeContext } from '../context/ThemeContext'
 import { BASE_URL } from '../services/baseUrl'
 
+const DEFAULT_LOCATION = {
+  latitude: 31.5204,
+  longitude: 74.3587,
+  latitudeDelta: 0.012,
+  longitudeDelta: 0.012,
+}
+
+const START_POINT_ALLOWED_DISTANCE_METERS = 120
+
 const TripControl = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
-  const [locationReady, setLocationReady] = useState(false)
+
   const mapRef = useRef(null)
   const watchIdRef = useRef(null)
+  const timerRef = useRef(null)
+  const mountedRef = useRef(true)
 
   const [loading, setLoading] = useState(true)
   const [startingTrip, setStartingTrip] = useState(false)
   const [endingTrip, setEndingTrip] = useState(false)
 
   const [driverData, setDriverData] = useState(null)
-  const [tripStarted, setTripStarted] = useState(false)
-  const [currentLocation, setCurrentLocation] = useState(null)
-
   const [assignedTrip, setAssignedTrip] = useState(null)
 
+  const [tripStarted, setTripStarted] = useState(false)
+  const [currentLocation, setCurrentLocation] = useState(DEFAULT_LOCATION)
+  const [locationReady, setLocationReady] = useState(true)
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [lastLocationTime, setLastLocationTime] = useState(null)
+  const [trackingActive, setTrackingActive] = useState(false)
+  const [distanceFromStart, setDistanceFromStart] = useState(null)
+
   useEffect(() => {
+    mountedRef.current = true
     initializeScreen()
 
     return () => {
+      mountedRef.current = false
+      stopRideTimer()
       stopLocationWatch()
     }
   }, [])
@@ -45,24 +65,14 @@ const TripControl = ({ navigation }) => {
     setLoading(true)
 
     try {
-      const hasPermission = await requestLocationPermission()
-
-      if (!hasPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Location permission is required to start trip tracking.',
-        )
-        return
-      }
-
       const userString = await AsyncStorage.getItem('user')
       const user = userString ? JSON.parse(userString) : null
 
       console.log('Driver user from AsyncStorage:', user)
 
       setDriverData(user)
-
-      await getCurrentLocation()
+      setCurrentLocation(DEFAULT_LOCATION)
+      setLocationReady(true)
 
       await fetchAssignedTrip(user)
     } catch (error) {
@@ -73,23 +83,30 @@ const TripControl = ({ navigation }) => {
   }
 
   const requestLocationPermission = async () => {
-    if (Platform.OS === 'ios') {
-      const auth = await Geolocation.requestAuthorization('whenInUse')
-      return auth === 'granted'
+    try {
+      if (Platform.OS === 'ios') {
+        const auth = await Geolocation.requestAuthorization('whenInUse')
+        return auth === 'granted'
+      }
+
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ])
+
+      const fineGranted =
+        granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
+        PermissionsAndroid.RESULTS.GRANTED
+
+      const coarseGranted =
+        granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] ===
+        PermissionsAndroid.RESULTS.GRANTED
+
+      return fineGranted || coarseGranted
+    } catch (error) {
+      console.log('Permission error:', error)
+      return false
     }
-
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Location Permission',
-        message:
-          'UOL Transportation App needs your location to track the running bus.',
-        buttonPositive: 'Allow',
-        buttonNegative: 'Cancel',
-      },
-    )
-
-    return granted === PermissionsAndroid.RESULTS.GRANTED
   }
 
   const getDriverId = user => {
@@ -100,18 +117,13 @@ const TripControl = ({ navigation }) => {
     try {
       const driverId = getDriverId(user)
 
-      console.log('Driver ID for assigned trip:', driverId)
-
       if (!driverId) {
         console.log('Driver ID not found in AsyncStorage user:', user)
         setAssignedTrip(null)
         return
       }
 
-      const url = `${BASE_URL}/driver/my-route/${driverId}`
-      console.log('Driver route API URL:', url)
-
-      const response = await fetch(url)
+      const response = await fetch(`${BASE_URL}/driver/my-route/${driverId}`)
       const json = await response.json()
 
       console.log('Driver route response:', json)
@@ -129,17 +141,16 @@ const TripControl = ({ navigation }) => {
           destination: data.route?.destination,
           estimated_time: data.route?.estimated_time,
           status: data.bus?.status,
-          stops: data.route?.stops || [],
+          stops: Array.isArray(data.route?.stops) ? data.route.stops : [],
         }
 
         setAssignedTrip(formattedTrip)
 
         if (formattedTrip.status === 'running') {
           setTripStarted(true)
-          startLocationWatch(formattedTrip)
+          startRideTimer()
         }
       } else {
-        console.log('No assigned route found:', json?.message)
         setAssignedTrip(null)
       }
     } catch (error) {
@@ -148,86 +159,203 @@ const TripControl = ({ navigation }) => {
     }
   }
 
-  const getCurrentLocation = () => {
-    return new Promise(resolve => {
-      Geolocation.getCurrentPosition(
-        position => {
-          const location = {
-            latitude: Number(position.coords.latitude),
-            longitude: Number(position.coords.longitude),
-            latitudeDelta: 0.012,
-            longitudeDelta: 0.012,
-          }
+  const calculateDistanceInMeters = (lat1, lon1, lat2, lon2) => {
+    const earthRadius = 6371000
+    const toRadians = value => (value * Math.PI) / 180
 
-          setCurrentLocation(location)
-          setLocationReady(true)
+    const dLat = toRadians(lat2 - lat1)
+    const dLon = toRadians(lon2 - lon1)
 
-          setTimeout(() => {
-            mapRef.current?.animateToRegion(location, 1000)
-          }, 800)
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2)
 
-          resolve(location)
-        },
-        error => {
-          console.log('Current location error:', error)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-          const fallbackLocation = {
-            latitude: 31.5204,
-            longitude: 74.3587,
-            latitudeDelta: 0.08,
-            longitudeDelta: 0.08,
-          }
+    return earthRadius * c
+  }
 
-          setCurrentLocation(fallbackLocation)
-          setLocationReady(true)
+  const getValidSortedStops = () => {
+    if (!assignedTrip?.stops || !Array.isArray(assignedTrip.stops)) {
+      return []
+    }
 
-          resolve(fallbackLocation)
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 20000,
-          maximumAge: 10000,
-        },
+    return assignedTrip.stops
+      .filter(stop => {
+        const lat = Number(stop.latitude)
+        const lng = Number(stop.longitude)
+        return !Number.isNaN(lat) && !Number.isNaN(lng)
+      })
+      .sort(
+        (a, b) =>
+          Number(a.stop_order || a.order || 0) -
+          Number(b.stop_order || b.order || 0),
       )
+  }
+
+  const getRouteStartingPoint = () => {
+    const validStops = getValidSortedStops()
+
+    if (validStops.length === 0) {
+      return null
+    }
+
+    const firstStop = validStops[0]
+
+    return {
+      latitude: Number(firstStop.latitude),
+      longitude: Number(firstStop.longitude),
+      name: firstStop.stop_name || firstStop.name || 'Starting Point',
+    }
+  }
+
+  const checkDriverAtStartingPoint = driverLocation => {
+    const startingPoint = getRouteStartingPoint()
+
+    if (!startingPoint) {
+      return {
+        allowed: false,
+        distance: null,
+        startingPoint: null,
+        message: 'Route starting location is not available.',
+      }
+    }
+
+    const distance = calculateDistanceInMeters(
+      driverLocation.latitude,
+      driverLocation.longitude,
+      startingPoint.latitude,
+      startingPoint.longitude,
+    )
+
+    return {
+      allowed: distance <= START_POINT_ALLOWED_DISTANCE_METERS,
+      distance,
+      startingPoint,
+      message:
+        distance <= START_POINT_ALLOWED_DISTANCE_METERS
+          ? 'Driver is at the starting point.'
+          : `You are ${Math.round(
+              distance,
+            )} meters away from the route starting point.`,
+    }
+  }
+
+  const getCurrentLocationSafely = () => {
+    return new Promise(resolve => {
+      try {
+        Geolocation.getCurrentPosition(
+          position => {
+            const latitude = Number(position?.coords?.latitude)
+            const longitude = Number(position?.coords?.longitude)
+
+            if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+              resolve(null)
+              return
+            }
+
+            const location = {
+              latitude,
+              longitude,
+              latitudeDelta: 0.012,
+              longitudeDelta: 0.012,
+            }
+
+            setCurrentLocation(location)
+            setLocationReady(true)
+            setLastLocationTime(new Date())
+
+            try {
+              mapRef.current?.animateToRegion(location, 800)
+            } catch (mapError) {
+              console.log('Map animate error:', mapError)
+            }
+
+            resolve(location)
+          },
+          error => {
+            console.log('Current location error:', error)
+            resolve(null)
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 20000,
+            maximumAge: 10000,
+          },
+        )
+      } catch (error) {
+        console.log('Get current location error:', error)
+        resolve(null)
+      }
     })
   }
 
   const startTrip = async () => {
+    if (startingTrip) return
+
     try {
       if (!assignedTrip) {
         Alert.alert('No Assigned Trip', 'No bus or route is assigned to you.')
         return
       }
 
-      const hasPermission = await requestLocationPermission()
-      if (!hasPermission) {
-        Alert.alert('Permission Required', 'Please allow location permission.')
+      const driverId = getDriverId(driverData)
+
+      if (!driverId) {
+        Alert.alert('Driver Error', 'Driver ID not found. Please login again.')
+        return
+      }
+
+      if (!assignedTrip?.bus_id || !assignedTrip?.route_id) {
+        Alert.alert('Trip Error', 'Bus or route information is missing.')
+        return
+      }
+
+      const startingPoint = getRouteStartingPoint()
+
+      if (!startingPoint) {
+        Alert.alert(
+          'Starting Point Missing',
+          'This route does not have a valid starting stop location. Please add route stops with latitude and longitude first.',
+        )
         return
       }
 
       setStartingTrip(true)
 
-      const driverId = getDriverId(driverData)
-      const location = await getCurrentLocation()
+      const hasPermission = await requestLocationPermission()
 
-      if (!location) {
-        Alert.alert('Location Error', 'Unable to get your current location.')
+      if (!hasPermission) {
+        Alert.alert('Permission Required', 'Please allow location permission.')
         return
       }
 
-      /*
-        Expected backend API:
-        POST /start-trip
+      const location = await getCurrentLocationSafely()
 
-        Body:
-        {
-          driver_id,
-          bus_id,
-          route_id,
-          latitude,
-          longitude
-        }
-      */
+      if (!location) {
+        Alert.alert(
+          'Location Error',
+          'Unable to get your current location. Please turn on GPS/location and try again.',
+        )
+        return
+      }
+
+      const startPointCheck = checkDriverAtStartingPoint(location)
+
+      setDistanceFromStart(startPointCheck.distance)
+
+      if (!startPointCheck.allowed) {
+        Alert.alert(
+          'Not at Starting Point',
+          `${startPointCheck.message}\n\nPlease go near: ${
+            startPointCheck.startingPoint?.name || 'Starting Point'
+          }\nAllowed range: ${START_POINT_ALLOWED_DISTANCE_METERS} meters.`,
+        )
+        return
+      }
 
       const response = await fetch(`${BASE_URL}/start-trip`, {
         method: 'POST',
@@ -247,36 +375,48 @@ const TripControl = ({ navigation }) => {
 
       if (json?.success) {
         setTripStarted(true)
-        startLocationWatch(assignedTrip)
-        Alert.alert('Trip Started', 'Your bus is now live for tracking.')
+        setTrackingActive(false)
+        setElapsedSeconds(0)
+        startRideTimer()
+
+        Alert.alert(
+          'Ride Started',
+          'You are at the starting point. Ride timer and live tracking have started.',
+        )
+
+        setTimeout(() => {
+          if (mountedRef.current) {
+            startLocationWatchSafely(assignedTrip, driverId)
+          }
+        }, 1200)
       } else {
-        Alert.alert('Error', json?.message || 'Unable to start trip.')
+        Alert.alert('Error', json?.message || 'Unable to start ride.')
       }
     } catch (error) {
       console.log('Start trip error:', error)
-      Alert.alert('Error', 'Something went wrong while starting trip.')
+      Alert.alert('Error', 'Something went wrong while starting ride.')
     } finally {
       setStartingTrip(false)
     }
   }
 
   const endTrip = async () => {
+    if (endingTrip) return
+
     try {
-      setEndingTrip(true)
+      if (!assignedTrip) {
+        Alert.alert('Trip Error', 'Trip data not found.')
+        return
+      }
 
       const driverId = getDriverId(driverData)
 
-      /*
-        Expected backend API:
-        POST /end-trip
+      if (!driverId) {
+        Alert.alert('Driver Error', 'Driver ID not found.')
+        return
+      }
 
-        Body:
-        {
-          driver_id,
-          bus_id,
-          route_id
-        }
-      */
+      setEndingTrip(true)
 
       const response = await fetch(`${BASE_URL}/end-trip`, {
         method: 'POST',
@@ -294,80 +434,94 @@ const TripControl = ({ navigation }) => {
 
       if (json?.success) {
         stopLocationWatch()
+        stopRideTimer()
         setTripStarted(false)
-        Alert.alert('Trip Ended', 'Live tracking has been stopped.')
+        setTrackingActive(false)
+        Alert.alert(
+          'Ride Ended',
+          'Ride timer and live tracking have been stopped.',
+        )
       } else {
-        Alert.alert('Error', json?.message || 'Unable to end trip.')
+        Alert.alert('Error', json?.message || 'Unable to end ride.')
       }
     } catch (error) {
       console.log('End trip error:', error)
-      Alert.alert('Error', 'Something went wrong while ending trip.')
+      Alert.alert('Error', 'Something went wrong while ending ride.')
     } finally {
       setEndingTrip(false)
     }
   }
 
-  const startLocationWatch = trip => {
-    stopLocationWatch()
+  const startLocationWatchSafely = (trip, driverId) => {
+    try {
+      stopLocationWatch()
 
-    watchIdRef.current = Geolocation.watchPosition(
-      position => {
-        const location = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          latitudeDelta: 0.012,
-          longitudeDelta: 0.012,
-        }
+      if (!trip?.bus_id || !trip?.route_id || !driverId) {
+        console.log('Cannot start location watch. Missing data:', {
+          trip,
+          driverId,
+        })
+        return
+      }
 
-        setCurrentLocation(location)
+      watchIdRef.current = Geolocation.watchPosition(
+        position => {
+          const latitude = Number(position?.coords?.latitude)
+          const longitude = Number(position?.coords?.longitude)
 
-        sendLiveLocationToBackend(location, trip)
+          if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+            return
+          }
 
-        mapRef.current?.animateToRegion(location, 700)
-      },
-      error => {
-        console.log('Watch location error:', error)
-      },
-      {
-        enableHighAccuracy: true,
-        distanceFilter: 10,
-        interval: 5000,
-        fastestInterval: 3000,
-        showsBackgroundLocationIndicator: true,
-      },
-    )
-  }
+          const location = {
+            latitude,
+            longitude,
+            latitudeDelta: 0.012,
+            longitudeDelta: 0.012,
+          }
 
-  const stopLocationWatch = () => {
-    if (watchIdRef.current !== null) {
-      Geolocation.clearWatch(watchIdRef.current)
-      watchIdRef.current = null
+          setCurrentLocation(location)
+          setLastLocationTime(new Date())
+          setTrackingActive(true)
+
+          sendLiveLocationToBackend(location, trip, driverId)
+
+          try {
+            mapRef.current?.animateToRegion(location, 700)
+          } catch (mapError) {
+            console.log('Watch map animate error:', mapError)
+          }
+        },
+        error => {
+          console.log('Watch location error:', error)
+          setTrackingActive(false)
+        },
+        {
+          enableHighAccuracy: false,
+          distanceFilter: 20,
+          interval: 8000,
+          fastestInterval: 5000,
+        },
+      )
+    } catch (error) {
+      console.log('Start location watch error:', error)
+      setTrackingActive(false)
     }
   }
 
-  const sendLiveLocationToBackend = async (location, trip) => {
+  const stopLocationWatch = () => {
     try {
-      const driverId = getDriverId(driverData)
+      if (watchIdRef.current !== null) {
+        Geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+    } catch (error) {
+      console.log('Stop location watch error:', error)
+    }
+  }
 
-      /*
-        Expected backend API:
-        POST /update-bus-location
-
-        Body:
-        {
-          driver_id,
-          bus_id,
-          route_id,
-          latitude,
-          longitude,
-          status: "running"
-        }
-
-        This API should update latest bus location in MySQL.
-        Student side will fetch only his assigned bus.
-        Admin side will fetch all running buses.
-      */
-
+  const sendLiveLocationToBackend = async (location, trip, driverId) => {
+    try {
       await fetch(`${BASE_URL}/update-bus-location`, {
         method: 'POST',
         headers: {
@@ -387,25 +541,53 @@ const TripControl = ({ navigation }) => {
     }
   }
 
-  const buildRouteCoordinates = () => {
-    if (!assignedTrip?.stops || !Array.isArray(assignedTrip.stops)) {
-      return []
-    }
+  const startRideTimer = () => {
+    stopRideTimer()
 
-    return assignedTrip.stops
-      .filter(stop => stop.latitude && stop.longitude)
-      .sort(
-        (a, b) =>
-          Number(a.stop_order || a.order || 0) -
-          Number(b.stop_order || b.order || 0),
-      )
-      .map(stop => ({
-        latitude: Number(stop.latitude),
-        longitude: Number(stop.longitude),
-      }))
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds(prev => prev + 1)
+    }, 1000)
   }
 
-  const routeCoordinates = buildRouteCoordinates()
+  const stopRideTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  const resetRideTimer = () => {
+    stopRideTimer()
+    setElapsedSeconds(0)
+  }
+
+  const formatDuration = totalSeconds => {
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+      2,
+      '0',
+    )}:${String(seconds).padStart(2, '0')}`
+  }
+
+  const formatLastLocationTime = date => {
+    if (!date) return 'Not updated yet'
+
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+
+    return `${hours}:${minutes}:${seconds}`
+  }
+
+  const routeCoordinates = getValidSortedStops().map(stop => ({
+    latitude: Number(stop.latitude),
+    longitude: Number(stop.longitude),
+  }))
+
+  const startingPoint = getRouteStartingPoint()
 
   if (loading) {
     return (
@@ -440,7 +622,6 @@ const TripControl = ({ navigation }) => {
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name='arrow-back' size={26} color={theme.colors.background} />
@@ -457,22 +638,52 @@ const TripControl = ({ navigation }) => {
         {locationReady && currentLocation ? (
           <MapView
             ref={mapRef}
+            provider={PROVIDER_GOOGLE}
             style={styles.map}
-            initialRegion={currentLocation}
+            mapType='standard'
+            initialRegion={{
+              latitude: Number(
+                currentLocation?.latitude || DEFAULT_LOCATION.latitude,
+              ),
+              longitude: Number(
+                currentLocation?.longitude || DEFAULT_LOCATION.longitude,
+              ),
+              latitudeDelta: 0.012,
+              longitudeDelta: 0.012,
+            }}
             showsUserLocation={false}
             showsMyLocationButton={false}
+            showsCompass={true}
+            showsScale={true}
+            showsBuildings={true}
+            showsTraffic={true}
+            showsIndoors={true}
+            toolbarEnabled={false}
           >
-            {currentLocation && (
+            <Marker
+              coordinate={{
+                latitude: Number(currentLocation.latitude),
+                longitude: Number(currentLocation.longitude),
+              }}
+              title='Your Current Location'
+              description='Driver mobile location'
+            >
+              <View style={styles.busMarker}>
+                <Icon name='bus' size={22} color='#fff' />
+              </View>
+            </Marker>
+
+            {startingPoint && (
               <Marker
                 coordinate={{
-                  latitude: currentLocation.latitude,
-                  longitude: currentLocation.longitude,
+                  latitude: startingPoint.latitude,
+                  longitude: startingPoint.longitude,
                 }}
-                title='Your Bus'
-                description='Live driver location'
+                title='Route Starting Point'
+                description={startingPoint.name}
               >
-                <View style={styles.busMarker}>
-                  <Icon name='bus' size={22} color='#fff' />
+                <View style={styles.startMarker}>
+                  <Icon name='flag' size={18} color='#fff' />
                 </View>
               </Marker>
             )}
@@ -489,15 +700,12 @@ const TripControl = ({ navigation }) => {
               const lat = Number(stop.latitude)
               const lng = Number(stop.longitude)
 
-              if (!lat || !lng) return null
+              if (Number.isNaN(lat) || Number.isNaN(lng)) return null
 
               return (
                 <Marker
-                  key={`${stop.stop_name}-${index}`}
-                  coordinate={{
-                    latitude: lat,
-                    longitude: lng,
-                  }}
+                  key={`${stop.stop_name || 'stop'}-${index}`}
+                  coordinate={{ latitude: lat, longitude: lng }}
                   title={String(stop.stop_name || `Stop ${index + 1}`)}
                   description={`Stop ${index + 1}`}
                 >
@@ -522,11 +730,19 @@ const TripControl = ({ navigation }) => {
         <TouchableOpacity
           activeOpacity={0.8}
           style={styles.recenterButton}
-          onPress={() => {
-            if (currentLocation) {
-              mapRef.current?.animateToRegion(currentLocation, 800)
-            } else {
-              getCurrentLocation()
+          onPress={async () => {
+            const hasPermission = await requestLocationPermission()
+            if (!hasPermission) {
+              Alert.alert(
+                'Permission Required',
+                'Please allow location permission.',
+              )
+              return
+            }
+
+            const location = await getCurrentLocationSafely()
+            if (!location) {
+              Alert.alert('Location Error', 'Unable to get current location.')
             }
           }}
         >
@@ -547,7 +763,7 @@ const TripControl = ({ navigation }) => {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 10 }}
+          contentContainerStyle={{ paddingBottom: 16 }}
         >
           <View style={styles.statusRow}>
             <View>
@@ -587,6 +803,81 @@ const TripControl = ({ navigation }) => {
               </Text>
             </View>
           </View>
+
+          <View style={styles.timerCard}>
+            <View style={styles.timerIconBox}>
+              <Icon
+                name='timer-outline'
+                size={24}
+                color={theme.colors.primary}
+              />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.timerLabel}>Ride Duration</Text>
+              <Text style={[styles.timerValue, { color: theme.colors.text }]}>
+                {formatDuration(elapsedSeconds)}
+              </Text>
+            </View>
+
+            {tripStarted && (
+              <View style={styles.trackingPill}>
+                <View
+                  style={[
+                    styles.trackingDot,
+                    { backgroundColor: trackingActive ? '#0A8F3C' : '#D97706' },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.trackingText,
+                    { color: trackingActive ? '#0A8F3C' : '#D97706' },
+                  ]}
+                >
+                  {trackingActive ? 'GPS Active' : 'GPS Waiting'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.locationInfoCard}>
+            <Icon
+              name='navigate-outline'
+              size={18}
+              color={theme.colors.primary}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.locationInfoLabel}>Last Location Update</Text>
+              <Text
+                style={[styles.locationInfoValue, { color: theme.colors.text }]}
+              >
+                {formatLastLocationTime(lastLocationTime)}
+              </Text>
+            </View>
+          </View>
+
+          {distanceFromStart !== null && (
+            <View style={styles.locationInfoCard}>
+              <Icon
+                name='flag-outline'
+                size={18}
+                color={theme.colors.primary}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.locationInfoLabel}>
+                  Distance From Start
+                </Text>
+                <Text
+                  style={[
+                    styles.locationInfoValue,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  {Math.round(distanceFromStart)} meters
+                </Text>
+              </View>
+            </View>
+          )}
 
           {assignedTrip ? (
             <>
@@ -684,11 +975,16 @@ const TripControl = ({ navigation }) => {
                   disabled={endingTrip}
                 >
                   {endingTrip ? (
-                    <ActivityIndicator color='#fff' />
+                    <View style={styles.buttonLoaderRow}>
+                      <ActivityIndicator color='#fff' size='small' />
+                      <Text style={styles.actionButtonText}>
+                        Ending Ride...
+                      </Text>
+                    </View>
                   ) : (
                     <>
                       <Icon name='stop-circle-outline' size={22} color='#fff' />
-                      <Text style={styles.actionButtonText}>End Trip</Text>
+                      <Text style={styles.actionButtonText}>End Ride</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -703,13 +999,29 @@ const TripControl = ({ navigation }) => {
                   disabled={startingTrip}
                 >
                   {startingTrip ? (
-                    <ActivityIndicator color='#fff' />
+                    <View style={styles.buttonLoaderRow}>
+                      <ActivityIndicator color='#fff' size='small' />
+                      <Text style={styles.actionButtonText}>
+                        Checking Location...
+                      </Text>
+                    </View>
                   ) : (
                     <>
                       <Icon name='play-circle-outline' size={22} color='#fff' />
-                      <Text style={styles.actionButtonText}>Start Trip</Text>
+                      <Text style={styles.actionButtonText}>Start Ride</Text>
                     </>
                   )}
+                </TouchableOpacity>
+              )}
+
+              {!tripStarted && elapsedSeconds > 0 && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.resetButton}
+                  onPress={resetRideTimer}
+                >
+                  <Icon name='refresh-outline' size={18} color='#6B7280' />
+                  <Text style={styles.resetButtonText}>Reset Timer</Text>
                 </TouchableOpacity>
               )}
             </>
@@ -770,6 +1082,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  mapFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E5E7EB',
+  },
+
+  mapFallbackText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
   recenterButton: {
     position: 'absolute',
     right: 18,
@@ -798,6 +1123,17 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
 
+  startMarker: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+
   stopMarker: {
     width: 28,
     height: 28,
@@ -816,8 +1152,8 @@ const styles = StyleSheet.create({
   },
 
   bottomSheet: {
-    maxHeight: '48%',
-    minHeight: 310,
+    maxHeight: '60%',
+    minHeight: 370,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 18,
@@ -877,8 +1213,88 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  timerCard: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+    padding: 14,
+  },
+
+  timerIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#EAF6EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  timerLabel: {
+    fontSize: 12,
+    color: '#7A7F89',
+    fontWeight: '700',
+  },
+
+  timerValue: {
+    marginTop: 2,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+
+  trackingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+  },
+
+  trackingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+
+  trackingText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  locationInfoCard: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+    padding: 12,
+  },
+
+  locationInfoLabel: {
+    fontSize: 11,
+    color: '#7A7F89',
+    fontWeight: '700',
+  },
+
+  locationInfoValue: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
   tripCard: {
-    marginTop: 18,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
@@ -1006,6 +1422,30 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  buttonLoaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+  },
+
+  resetButton: {
+    marginTop: 10,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+
+  resetButtonText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
   emptyCard: {
     marginTop: 30,
     alignItems: 'center',
@@ -1031,16 +1471,4 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 19,
   },
-  mapFallback: {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#E5E7EB',
-},
-
-mapFallbackText: {
-  marginTop: 10,
-  fontSize: 14,
-  fontWeight: '600',
-},
 })

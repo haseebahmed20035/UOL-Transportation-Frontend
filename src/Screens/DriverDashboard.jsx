@@ -13,16 +13,63 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import Icon from 'react-native-vector-icons/Ionicons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ThemeContext } from '../context/ThemeContext'
+import { BASE_URL } from '../services/baseUrl'
 
 const DriverDashboard = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
   const [menuVisible, setMenuVisible] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const [recentScreens, setRecentScreens] = useState([])
+  const [rideLoading, setRideLoading] = useState(false)
+  const [currentRide, setCurrentRide] = useState(null)
 
   useEffect(() => {
     loadRecent()
-  }, [])
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchCurrentRideStatus()
+    })
+
+    fetchCurrentRideStatus()
+
+    return unsubscribe
+  }, [navigation])
+
+  const fetchCurrentRideStatus = async () => {
+    try {
+      setRideLoading(true)
+
+      const storedUser = await AsyncStorage.getItem('user')
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null
+
+      const driverId =
+        parsedUser?.driver_id ||
+        parsedUser?.id ||
+        parsedUser?.user_id ||
+        parsedUser?.userId
+
+      if (!driverId) {
+        setCurrentRide(null)
+        return
+      }
+
+      const response = await fetch(
+        `${BASE_URL}/driver/current-ride/${driverId}`,
+      )
+      const data = await response.json()
+
+      if (response.ok && data?.success && data?.ride) {
+        setCurrentRide(data.ride)
+      } else {
+        setCurrentRide(null)
+      }
+    } catch (error) {
+      console.log('Current ride status error:', error)
+      setCurrentRide(null)
+    } finally {
+      setRideLoading(false)
+    }
+  }
 
   const loadRecent = async () => {
     const stored = await AsyncStorage.getItem('recentScreens')
@@ -92,6 +139,13 @@ const DriverDashboard = ({ navigation }) => {
     },
   ]
 
+  const isRideActive =
+    currentRide?.is_live === true ||
+    currentRide?.is_live === 1 ||
+    currentRide?.ride_active === true ||
+    currentRide?.ride_active === 1 ||
+    currentRide?.status === 'live' ||
+    currentRide?.status === 'active'
   return (
     <View
       style={[
@@ -221,10 +275,29 @@ const DriverDashboard = ({ navigation }) => {
               Manage rides, students, attendance and live tracking efficiently.
             </Text>
 
-            <View style={styles.activeRideChip}>
-              <Icon name='radio-button-on' size={12} color='#4CAF50' />
+            <View
+              style={[
+                styles.activeRideChip,
+                {
+                  backgroundColor: isRideActive
+                    ? 'rgba(76,175,80,0.22)'
+                    : 'rgba(255,255,255,0.15)',
+                },
+              ]}
+            >
+              <Icon
+                name={isRideActive ? 'radio-button-on' : 'radio-button-off'}
+                size={12}
+                color={isRideActive ? '#4CAF50' : '#ddd'}
+              />
 
-              <Text style={styles.activeRideText}>Ride Active</Text>
+              <Text style={styles.activeRideText}>
+                {rideLoading
+                  ? 'Checking Ride...'
+                  : isRideActive
+                  ? 'Ride Active'
+                  : 'No Active Ride'}
+              </Text>
             </View>
           </View>
 
@@ -242,31 +315,74 @@ const DriverDashboard = ({ navigation }) => {
             <View>
               <Text style={styles.liveTitle}>Current Ride Status</Text>
 
-              <Text style={styles.liveSub}>Bus #BUS-101</Text>
+              <Text style={styles.liveSub}>
+                {rideLoading
+                  ? 'Checking bus status...'
+                  : isRideActive
+                  ? `Bus #${currentRide?.bus_number || 'N/A'}`
+                  : 'No bus is live right now'}
+              </Text>
             </View>
 
-            <View style={styles.liveBadge}>
-              <Text style={styles.liveBadgeText}>LIVE</Text>
-            </View>
-          </View>
-
-          <View style={styles.liveRow}>
-            <View style={styles.liveItem}>
-              <Icon name='location' size={22} color='#2196F3' />
-
-              <Text style={styles.liveItemTitle}>Current Stop</Text>
-
-              <Text style={styles.liveItemValue}>Johar Town</Text>
-            </View>
-
-            <View style={styles.liveItem}>
-              <Icon name='time' size={22} color='#FF9800' />
-
-              <Text style={styles.liveItemTitle}>ETA</Text>
-
-              <Text style={styles.liveItemValue}>12 mins</Text>
+            <View
+              style={[
+                styles.liveBadge,
+                {
+                  backgroundColor: isRideActive ? '#4CAF50' : '#9E9E9E',
+                },
+              ]}
+            >
+              <Text style={styles.liveBadgeText}>
+                {rideLoading ? '...' : isRideActive ? 'LIVE' : 'OFFLINE'}
+              </Text>
             </View>
           </View>
+
+          {rideLoading ? (
+            <View style={styles.emptyRideBox}>
+              <Text style={styles.emptyRideText}>
+                Fetching current ride status...
+              </Text>
+            </View>
+          ) : isRideActive ? (
+            <View style={styles.liveRow}>
+              <View style={styles.liveItem}>
+                <Icon name='location' size={22} color='#2196F3' />
+
+                <Text style={styles.liveItemTitle}>Current Stop</Text>
+
+                <Text style={styles.liveItemValue}>
+                  {currentRide?.current_stop ||
+                    currentRide?.stop_name ||
+                    currentRide?.last_location_name ||
+                    'Updating...'}
+                </Text>
+              </View>
+
+              <View style={styles.liveItem}>
+                <Icon name='time' size={22} color='#FF9800' />
+
+                <Text style={styles.liveItemTitle}>ETA</Text>
+
+                <Text style={styles.liveItemValue}>
+                  {currentRide?.eta
+                    ? `${currentRide.eta} mins`
+                    : 'Calculating...'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.emptyRideBox}>
+              <Icon name='bus-outline' size={34} color='#9E9E9E' />
+
+              <Text style={styles.emptyRideTitle}>No Active Ride</Text>
+
+              <Text style={styles.emptyRideText}>
+                Start a ride from Trip Control to make the bus live for
+                students.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* QUICK ACTIONS */}
@@ -636,4 +752,26 @@ const styles = StyleSheet.create({
     color: '#777',
     textAlign: 'center',
   },
+  emptyRideBox: {
+  marginTop: 22,
+  backgroundColor: '#f5f7fb',
+  borderRadius: 18,
+  padding: 20,
+  alignItems: 'center',
+},
+
+emptyRideTitle: {
+  marginTop: 10,
+  fontSize: 16,
+  fontWeight: 'bold',
+  color: '#333',
+},
+
+emptyRideText: {
+  marginTop: 6,
+  color: '#777',
+  fontSize: 13,
+  textAlign: 'center',
+  lineHeight: 19,
+},
 })
