@@ -52,6 +52,8 @@ import DriverList from './src/Screens/DriverList'
 import AddDriver from './src/Screens/AddDriver'
 import DeleteDriver from './src/Screens/DeleteDriver'
 import DriverPersonalInfo from './src/Screens/DriverPersonalInfo'
+import StudentNotification from './src/Screens/StudentNotification'
+import DriverNotification from './src/Screens/DriverNotification'
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
 import messaging
@@ -165,6 +167,8 @@ const App = () => {
         <Stack.Screen name="DriverPersonalInfo" component={DriverPersonalInfo} />
         <Stack.Screen name="DriverMyRoute" component={DriverMyRoute} />
         <Stack.Screen name="TripControl" component={TripControl} />
+        <Stack.Screen name="StudentNotification" component={StudentNotification} />
+        <Stack.Screen name="DriverNotification" component={DriverNotification} />
       </Stack.Navigator>
     </NavigationContainer>
     </ThemeProvider>

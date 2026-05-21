@@ -8,6 +8,7 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Animated,
 } from 'react-native'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -16,6 +17,10 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
 import Geolocation from '@react-native-community/geolocation'
 import { ThemeContext } from '../context/ThemeContext'
 import { BASE_URL } from '../services/baseUrl'
+import {
+  startTripLocationService,
+  stopTripLocationService,
+} from '../services/TripLocationService'
 
 const DEFAULT_LOCATION = {
   latitude: 31.5204,
@@ -33,7 +38,8 @@ const TripControl = ({ navigation }) => {
   const watchIdRef = useRef(null)
   const timerRef = useRef(null)
   const mountedRef = useRef(true)
-
+  const pulseAnim = useRef(new Animated.Value(1)).current
+  const busMoveAnim = useRef(new Animated.Value(0)).current
   const [loading, setLoading] = useState(true)
   const [startingTrip, setStartingTrip] = useState(false)
   const [endingTrip, setEndingTrip] = useState(false)
@@ -51,16 +57,94 @@ const TripControl = ({ navigation }) => {
   const [distanceFromStart, setDistanceFromStart] = useState(null)
 
   useEffect(() => {
+    if (!tripStarted) return
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.12,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ]),
+    )
+
+    const busLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(busMoveAnim, {
+          toValue: 1,
+          duration: 1100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(busMoveAnim, {
+          toValue: 0,
+          duration: 1100,
+          useNativeDriver: true,
+        }),
+      ]),
+    )
+
+    pulseLoop.start()
+    busLoop.start()
+
+    return () => {
+      pulseLoop.stop()
+      busLoop.stop()
+    }
+  }, [tripStarted])
+
+  useEffect(() => {
     mountedRef.current = true
     initializeScreen()
 
     return () => {
       mountedRef.current = false
+
+      // Do not stop live tracking here.
+      // Tracking should continue after leaving this screen.
       stopRideTimer()
-      stopLocationWatch()
     }
   }, [])
+  const restoreActiveTripTimer = async () => {
+    try {
+      const activeTripString = await AsyncStorage.getItem('activeTrip')
+      const activeTrip = activeTripString ? JSON.parse(activeTripString) : null
 
+      if (!activeTrip?.started_at) return false
+
+      const startedAt = new Date(activeTrip.started_at).getTime()
+      const now = new Date().getTime()
+
+      const seconds = Math.floor((now - startedAt) / 1000)
+
+      setElapsedSeconds(seconds > 0 ? seconds : 0)
+      setTripStarted(true)
+      setTrackingActive(true)
+
+      startRideTimerFromStartedAt(activeTrip.started_at)
+
+      return true
+    } catch (error) {
+      console.log('Restore active trip timer error:', error)
+      return false
+    }
+  }
+  const startRideTimerFromStartedAt = startedAt => {
+    stopRideTimer()
+
+    timerRef.current = setInterval(() => {
+      const startedTime = new Date(startedAt).getTime()
+      const now = new Date().getTime()
+      const seconds = Math.floor((now - startedTime) / 1000)
+
+      setElapsedSeconds(seconds > 0 ? seconds : 0)
+    }, 1000)
+  }
   const initializeScreen = async () => {
     setLoading(true)
 
@@ -75,6 +159,7 @@ const TripControl = ({ navigation }) => {
       setLocationReady(true)
 
       await fetchAssignedTrip(user)
+      await restoreActiveTripTimer()
     } catch (error) {
       console.log('Trip control init error:', error)
     } finally {
@@ -375,20 +460,24 @@ const TripControl = ({ navigation }) => {
 
       if (json?.success) {
         setTripStarted(true)
-        setTrackingActive(false)
+        setTrackingActive(true)
         setElapsedSeconds(0)
-        startRideTimer()
+
+        await startTripLocationService(assignedTrip)
+
+        const activeTripString = await AsyncStorage.getItem('activeTrip')
+        const activeTrip = activeTripString
+          ? JSON.parse(activeTripString)
+          : null
+
+        if (activeTrip?.started_at) {
+          startRideTimerFromStartedAt(activeTrip.started_at)
+        }
 
         Alert.alert(
           'Ride Started',
-          'You are at the starting point. Ride timer and live tracking have started.',
+          'You are at the starting point. Students can now track the bus.',
         )
-
-        setTimeout(() => {
-          if (mountedRef.current) {
-            startLocationWatchSafely(assignedTrip, driverId)
-          }
-        }, 1200)
       } else {
         Alert.alert('Error', json?.message || 'Unable to start ride.')
       }
@@ -433,10 +522,14 @@ const TripControl = ({ navigation }) => {
       const json = await response.json()
 
       if (json?.success) {
+        await stopTripLocationService()
+
         stopLocationWatch()
         stopRideTimer()
+
         setTripStarted(false)
         setTrackingActive(false)
+
         Alert.alert(
           'Ride Ended',
           'Ride timer and live tracking have been stopped.',
@@ -541,11 +634,25 @@ const TripControl = ({ navigation }) => {
     }
   }
 
-  const startRideTimer = () => {
+  const startRideTimer = async () => {
+    const activeTripString = await AsyncStorage.getItem('activeTrip')
+    const activeTrip = activeTripString ? JSON.parse(activeTripString) : null
+
+    if (activeTrip?.started_at) {
+      startRideTimerFromStartedAt(activeTrip.started_at)
+      return
+    }
+
     stopRideTimer()
 
+    const fallbackStartedAt = new Date().toISOString()
+
     timerRef.current = setInterval(() => {
-      setElapsedSeconds(prev => prev + 1)
+      const startedTime = new Date(fallbackStartedAt).getTime()
+      const now = new Date().getTime()
+      const seconds = Math.floor((now - startedTime) / 1000)
+
+      setElapsedSeconds(seconds > 0 ? seconds : 0)
     }, 1000)
   }
 
@@ -581,6 +688,86 @@ const TripControl = ({ navigation }) => {
 
     return `${hours}:${minutes}:${seconds}`
   }
+
+  const getNearestAndNextStop = () => {
+    const stops = getValidSortedStops()
+
+    if (!currentLocation || stops.length === 0) {
+      return {
+        currentStop: null,
+        nextStop: null,
+        nextStopNumber: null,
+        distanceToNextStop: null,
+      }
+    }
+
+    const stopsWithDistance = stops.map((stop, index) => {
+      const stopLat = Number(stop.latitude)
+      const stopLng = Number(stop.longitude)
+
+      const distance = calculateDistanceInMeters(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        stopLat,
+        stopLng,
+      )
+
+      return {
+        ...stop,
+        index,
+        distance,
+        name: stop.stop_name || stop.name || `Stop ${index + 1}`,
+      }
+    })
+
+    stopsWithDistance.sort((a, b) => a.distance - b.distance)
+
+    const nearestStop = stopsWithDistance[0]
+
+    const originalStops = getValidSortedStops()
+
+    const nearestOriginalIndex = originalStops.findIndex(stop => {
+      return (
+        Number(stop.latitude) === Number(nearestStop.latitude) &&
+        Number(stop.longitude) === Number(nearestStop.longitude)
+      )
+    })
+
+    const nextStop =
+      nearestOriginalIndex >= 0 &&
+      nearestOriginalIndex + 1 < originalStops.length
+        ? originalStops[nearestOriginalIndex + 1]
+        : null
+
+    return {
+      currentStop: nearestStop,
+      nextStop: nextStop
+        ? {
+            ...nextStop,
+            name:
+              nextStop.stop_name ||
+              nextStop.name ||
+              `Stop ${nearestOriginalIndex + 2}`,
+          }
+        : null,
+      nextStopNumber: nextStop ? nearestOriginalIndex + 2 : null,
+      distanceToNextStop: nextStop
+        ? calculateDistanceInMeters(
+            currentLocation.latitude,
+            currentLocation.longitude,
+            Number(nextStop.latitude),
+            Number(nextStop.longitude),
+          )
+        : null,
+    }
+  }
+
+  const stopStatus = getNearestAndNextStop()
+
+  const animatedBusTranslate = busMoveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 55],
+  })
 
   const routeCoordinates = getValidSortedStops().map(stop => ({
     latitude: Number(stop.latitude),
@@ -709,8 +896,18 @@ const TripControl = ({ navigation }) => {
                   title={String(stop.stop_name || `Stop ${index + 1}`)}
                   description={`Stop ${index + 1}`}
                 >
-                  <View style={styles.stopMarker}>
-                    <Text style={styles.stopMarkerText}>{index + 1}</Text>
+                  <View
+                    style={[
+                      styles.stopMarker,
+                      stopStatus.nextStopNumber === index + 1 &&
+                        styles.nextStopMapMarker,
+                    ]}
+                  >
+                    {stopStatus.nextStopNumber === index + 1 ? (
+                      <Icon name='flag' size={15} color='#fff' />
+                    ) : (
+                      <Text style={styles.stopMarkerText}>{index + 1}</Text>
+                    )}
                   </View>
                 </Marker>
               )
@@ -839,6 +1036,94 @@ const TripControl = ({ navigation }) => {
               </View>
             )}
           </View>
+
+          {tripStarted && (
+            <View style={styles.nextStopCard}>
+              <View style={styles.nextStopTop}>
+                <Animated.View
+                  style={[
+                    styles.nextStopIconCircle,
+                    {
+                      transform: [{ scale: pulseAnim }],
+                      backgroundColor: theme.colors.primary || '#175812',
+                    },
+                  ]}
+                >
+                  <Icon name='flag-outline' size={24} color='#fff' />
+                </Animated.View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nextStopSmallLabel}>Next Stop</Text>
+
+                  <Text
+                    style={[styles.nextStopName, { color: theme.colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {stopStatus.nextStop?.name || 'Final stop reached'}
+                  </Text>
+
+                  <Text style={styles.nextStopDistance}>
+                    {stopStatus.distanceToNextStop !== null
+                      ? `${Math.round(
+                          stopStatus.distanceToNextStop,
+                        )} meters away`
+                      : 'Waiting for GPS update'}
+                  </Text>
+                </View>
+
+                <View style={styles.nextStopBadge}>
+                  <Text style={styles.nextStopBadgeText}>
+                    {stopStatus.nextStopNumber
+                      ? `Stop ${stopStatus.nextStopNumber}`
+                      : 'End'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.animatedRouteBox}>
+                <View style={styles.routeMiniDotActive} />
+
+                <View style={styles.animatedRouteLine}>
+                  <Animated.View
+                    style={[
+                      styles.movingMiniBus,
+                      {
+                        transform: [{ translateX: animatedBusTranslate }],
+                      },
+                    ]}
+                  >
+                    <Icon name='bus' size={13} color='#fff' />
+                  </Animated.View>
+                </View>
+
+                <View style={styles.routeMiniDotNext} />
+              </View>
+
+              <View style={styles.currentStopBox}>
+                <Icon
+                  name='location-outline'
+                  size={17}
+                  color={theme.colors.primary}
+                />
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.currentStopLabel}>
+                    Nearest Current Stop
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.currentStopValue,
+                      { color: theme.colors.text },
+                    ]}
+                  >
+                    {stopStatus.currentStop?.name ||
+                      'Detecting current stop...'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           <View style={styles.locationInfoCard}>
             <Icon
@@ -1470,5 +1755,136 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     lineHeight: 19,
+  },
+  nextStopCard: {
+    marginTop: 14,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    padding: 15,
+    overflow: 'hidden',
+  },
+
+  nextStopTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  nextStopIconCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+
+  nextStopSmallLabel: {
+    fontSize: 11,
+    color: '#15803D',
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  nextStopName: {
+    marginTop: 3,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+
+  nextStopDistance: {
+    marginTop: 3,
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+
+  nextStopBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+
+  nextStopBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#166534',
+  },
+
+  animatedRouteBox: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  routeMiniDotActive: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#16A34A',
+  },
+
+  routeMiniDotNext: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#F97316',
+  },
+
+  animatedRouteLine: {
+    flex: 1,
+    height: 5,
+    borderRadius: 99,
+    backgroundColor: '#BBF7D0',
+    marginHorizontal: 8,
+    justifyContent: 'center',
+  },
+
+  movingMiniBus: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#175812',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -10,
+    elevation: 3,
+  },
+
+  currentStopBox: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    padding: 12,
+  },
+
+  currentStopLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+
+  currentStopValue: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  nextStopMapMarker: {
+    backgroundColor: '#F97316',
+    borderColor: '#fff',
   },
 })

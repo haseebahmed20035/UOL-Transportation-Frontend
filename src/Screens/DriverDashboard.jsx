@@ -9,11 +9,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import React, { useContext, useEffect, useRef, useState } from 'react'
+import React, {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react'
 import Icon from 'react-native-vector-icons/Ionicons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ThemeContext } from '../context/ThemeContext'
-import { BASE_URL } from '../services/baseUrl'
+import { BASE_URL, endPoints } from '../services/baseUrl'
+import { useFocusEffect } from '@react-navigation/native'
+import axios from 'axios'
 
 const DriverDashboard = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -22,17 +30,77 @@ const DriverDashboard = ({ navigation }) => {
   const [recentScreens, setRecentScreens] = useState([])
   const [rideLoading, setRideLoading] = useState(false)
   const [currentRide, setCurrentRide] = useState(null)
+  const [notifications, setNotifications] = useState([])
 
+  const unreadNotificationCount = notifications.filter(
+    item => Number(item.is_read) === 0,
+  ).length
+
+  const fetchDriverNotifications = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user')
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null
+
+      const rawDriverId =
+        parsedUser?.driver_id ||
+        parsedUser?.driverId ||
+        parsedUser?.id ||
+        parsedUser?.user_id ||
+        parsedUser?.userId
+
+      if (!rawDriverId) {
+        setNotifications([])
+        return
+      }
+
+      const driverNotificationUserId = `driver_${rawDriverId}`
+
+      const response = await axios.get(
+        `${BASE_URL}/${endPoints.getUserNotifications}/${driverNotificationUserId}`,
+      )
+
+      const list = response.data?.notifications || []
+
+      setNotifications(list)
+    } catch (error) {
+      console.log(
+        'Driver dashboard notification error:',
+        error?.response?.data || error,
+      )
+
+      setNotifications([])
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDriverNotifications()
+    }, []),
+  )
   useEffect(() => {
     loadRecent()
 
+    fetchCurrentRideStatus()
+    fetchDriverNotifications()
+
     const unsubscribe = navigation.addListener('focus', () => {
       fetchCurrentRideStatus()
+      fetchDriverNotifications()
     })
 
-    fetchCurrentRideStatus()
+    const interval = setInterval(() => {
+      fetchCurrentRideStatus()
+    }, 8000)
 
-    return unsubscribe
+    const notificationInterval = setInterval(() => {
+      fetchDriverNotifications()
+    }, 10000)
+
+    return () => {
+      unsubscribe()
+      clearInterval(interval)
+      clearInterval(notificationInterval)
+    }
   }, [navigation])
 
   const fetchCurrentRideStatus = async () => {
@@ -41,6 +109,9 @@ const DriverDashboard = ({ navigation }) => {
 
       const storedUser = await AsyncStorage.getItem('user')
       const parsedUser = storedUser ? JSON.parse(storedUser) : null
+
+      const activeTripString = await AsyncStorage.getItem('activeTrip')
+      const activeTrip = activeTripString ? JSON.parse(activeTripString) : null
 
       const driverId =
         parsedUser?.driver_id ||
@@ -53,16 +124,40 @@ const DriverDashboard = ({ navigation }) => {
         return
       }
 
-      const response = await fetch(
-        `${BASE_URL}/driver/current-ride/${driverId}`,
-      )
-      const data = await response.json()
+      let backendRide = null
 
-      if (response.ok && data?.success && data?.ride) {
-        setCurrentRide(data.ride)
-      } else {
-        setCurrentRide(null)
+      try {
+        const response = await fetch(
+          `${BASE_URL}/driver/current-ride/${driverId}`,
+        )
+
+        const data = await response.json()
+
+        if (response.ok && data?.success && data?.ride) {
+          backendRide = data.ride
+        }
+      } catch (apiError) {
+        console.log('Current ride API error:', apiError)
       }
+
+      if (backendRide) {
+        setCurrentRide({
+          ...backendRide,
+          is_live: true,
+        })
+        return
+      }
+
+      if (activeTrip) {
+        setCurrentRide({
+          ...activeTrip,
+          is_live: true,
+          status: 'running',
+        })
+        return
+      }
+
+      setCurrentRide(null)
     } catch (error) {
       console.log('Current ride status error:', error)
       setCurrentRide(null)
@@ -80,10 +175,15 @@ const DriverDashboard = ({ navigation }) => {
   }
 
   const navigateAndTrack = async screen => {
-    const updated = [screen, ...recentScreens.filter(s => s !== screen)].slice(
-      0,
-      5,
-    )
+    const time = new Date().toLocaleTimeString()
+
+    const updated = [
+      {
+        name: screen,
+        time,
+      },
+      ...recentScreens.filter(s => s.name !== screen),
+    ].slice(0, 5)
 
     setRecentScreens(updated)
 
@@ -111,13 +211,6 @@ const DriverDashboard = ({ navigation }) => {
     },
 
     {
-      title: 'Live Tracking',
-      icon: 'location',
-      color: '#2196F3',
-      screen: 'LiveBusTracking',
-    },
-
-    {
       title: 'My Route',
       icon: 'map',
       color: '#FF9800',
@@ -125,17 +218,10 @@ const DriverDashboard = ({ navigation }) => {
     },
 
     {
-      title: 'Attendance',
-      icon: 'people',
-      color: '#9C27B0',
-      screen: 'StudentAttendance',
-    },
-
-    {
       title: 'Notifications',
       icon: 'notifications',
       color: '#009688',
-      screen: 'SendNotification',
+      screen: 'DriverNotification',
     },
   ]
 
@@ -145,7 +231,8 @@ const DriverDashboard = ({ navigation }) => {
     currentRide?.ride_active === true ||
     currentRide?.ride_active === 1 ||
     currentRide?.status === 'live' ||
-    currentRide?.status === 'active'
+    currentRide?.status === 'active' ||
+    currentRide?.status === 'running'
   return (
     <View
       style={[
@@ -179,9 +266,29 @@ const DriverDashboard = ({ navigation }) => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.profileBtn} onPress={menuAnimation}>
-          <Text style={styles.profileText}>D</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('DriverNotification')}
+          >
+            <Icon name='notifications-outline' size={24} color='white' />
+
+            {unreadNotificationCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadNotificationCount > 99
+                    ? '99+'
+                    : unreadNotificationCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.profileBtn} onPress={menuAnimation}>
+            <Text style={styles.profileText}>D</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* DROPDOWN */}
@@ -407,6 +514,16 @@ const DriverDashboard = ({ navigation }) => {
               >
                 <Icon name={item.icon} size={28} color='white' />
               </View>
+
+              {item.title === 'Notifications' && unreadNotificationCount > 0 && (
+                <View style={styles.actionBadge}>
+                  <Text style={styles.actionBadgeText}>
+                    {unreadNotificationCount > 99
+                      ? '99+'
+                      : unreadNotificationCount}
+                  </Text>
+                </View>
+              )}
 
               <Text style={styles.actionTitle}>{item.title}</Text>
             </TouchableOpacity>
@@ -753,25 +870,76 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyRideBox: {
-  marginTop: 22,
-  backgroundColor: '#f5f7fb',
-  borderRadius: 18,
-  padding: 20,
+    marginTop: 22,
+    backgroundColor: '#f5f7fb',
+    borderRadius: 18,
+    padding: 20,
+    alignItems: 'center',
+  },
+
+  emptyRideTitle: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+
+  emptyRideText: {
+    marginTop: 6,
+    color: '#777',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  actionBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 30,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#e53935',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+
+  actionBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  headerRight: {
+  flexDirection: 'row',
   alignItems: 'center',
+  gap: 10,
 },
 
-emptyRideTitle: {
-  marginTop: 10,
-  fontSize: 16,
-  fontWeight: 'bold',
-  color: '#333',
+iconBtn: {
+  marginRight: 6,
+  position: 'relative',
 },
 
-emptyRideText: {
-  marginTop: 6,
-  color: '#777',
-  fontSize: 13,
-  textAlign: 'center',
-  lineHeight: 19,
+notificationBadge: {
+  position: 'absolute',
+  top: -8,
+  right: -8,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  backgroundColor: '#e53935',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingHorizontal: 5,
+  borderWidth: 1.5,
+  borderColor: '#fff',
+},
+
+notificationBadgeText: {
+  color: '#fff',
+  fontSize: 10,
+  fontWeight: '900',
 },
 })
