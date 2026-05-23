@@ -14,7 +14,9 @@ import { ThemeContext } from '../context/ThemeContext'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { useEffect } from 'react'
 import { PermissionsAndroid, Platform } from 'react-native'
-import Geolocation from 'react-native-geolocation-service';
+import Geolocation from '@react-native-community/geolocation'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const GOOGLE_API_KEY = 'AIzaSyBG_tfwPfE3Bnn2-8CwNTOZuPd1c0Yr0Wc'
 Geolocation.setRNConfiguration({
@@ -78,9 +80,11 @@ const AddRoutes = ({ navigation }) => {
         )
       },
       {
-        enableHighAccuracy: false,
+        enableHighAccuracy: true,
         timeout: 30000,
-        maximumAge: 1000,
+        maximumAge: 0,
+        forceRequestLocation: true,
+        showLocationDialog: true,
       },
     )
   }
@@ -187,7 +191,7 @@ const AddRoutes = ({ navigation }) => {
     setLoading(true)
 
     try {
-      const res = await fetch('http://192.168.100.100:5000/add-route', {
+      const res = await fetch(`${BASE_URL}/${endPoints.addRoute}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,189 +278,160 @@ const AddRoutes = ({ navigation }) => {
     requestLocationPermission()
   }, [])
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {/* HEADER */}
-      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={26} color='#fff' />
-        </TouchableOpacity>
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        {/* HEADER */}
+        <View
+          style={[styles.header, { backgroundColor: theme.colors.primary }]}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name='arrow-back' size={26} color='#fff' />
+          </TouchableOpacity>
 
-        <Text style={styles.headerText}>Add Route</Text>
-        <View style={{ width: 26 }} />
-      </View>
+          <Text style={styles.headerText}>Add Route</Text>
+          <View style={{ width: 26 }} />
+        </View>
 
-      <ScrollView contentContainerStyle={{ padding: 15 }}>
-        {/* INPUTS */}
-        <TextInput
-          placeholder='Route Name (e.g. UOL Morning Route)'
-          value={routeName}
-          onChangeText={setRouteName}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder='Source'
-          value={source}
-          onChangeText={setSource}
-          style={styles.input}
-        />
-
-        <TextInput
-          placeholder='Destination'
-          value={destination}
-          onChangeText={setDestination}
-          style={styles.input}
-        />
-
-        {/* 🔥 ROUTE PREVIEW */}
-        {source && destination && (
-          <View style={styles.routePreview}>
-            <View style={styles.locationBox}>
-              <Icon name='location' size={16} color='#2ecc71' />
-              <Text style={styles.locationText}>{source}</Text>
-            </View>
-
-            <Icon
-              name='swap-horizontal-outline'
-              size={22}
-              color={theme.colors.primary}
-              style={{ marginHorizontal: 10 }}
-            />
-
-            <View style={styles.locationBox}>
-              <Icon name='flag-outline' size={16} color='#e74c3c' />
-              <Text style={styles.locationText}>{destination}</Text>
-            </View>
-          </View>
-        )}
-
-        <TextInput
-          placeholder='Estimated Time'
-          value={time}
-          editable={false} // 🔥 important
-          style={[styles.input, { backgroundColor: '#f1f3f6' }]}
-        />
-
-        {/* 🔥 SEARCH BAR
-        <View style={styles.searchWrapper}>
-          <GooglePlacesAutocomplete
-            placeholder="Search places"
-            fetchDetails={true}
-            // keep these (prevent earlier crashes)
-            predefinedPlaces={[]}
-            textInputProps={{ onFocus: () => {}, onBlur: () => {} }}
-            listViewDisplayed="auto"
-            minLength={2}
-            debounce={400}
-            query={{
-              key: GOOGLE_API_KEY,
-              language: 'en',
-              types: 'geocode', // cities/areas + addresses
-            }}
-            onPress={(data, details = null) => {
-              if (!details) return;
-
-              const { lat, lng } = details.geometry.location;
-
-              setSelectedLocation({
-                latitude: lat,
-                longitude: lng,
-                name: data.description,
-              });
-
-              mapRef.current?.animateToRegion({
-                latitude: lat,
-                longitude: lng,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              });
-            }}
-            styles={{
-              textInput: styles.searchInputModern,
-              container: { flex: 0 },
-              listView: styles.searchDropdown,
-            }}
-            enablePoweredByContainer={false}
+        <ScrollView contentContainerStyle={{ padding: 15 }}>
+          {/* INPUTS */}
+          <TextInput
+            placeholder='Route Name (e.g. UOL Morning Route)'
+            value={routeName}
+            onChangeText={setRouteName}
+            style={styles.input}
+          />
+          <TextInput
+            placeholder='Source'
+            value={source}
+            onChangeText={setSource}
+            style={styles.input}
           />
 
-          <View style={styles.searchIconModern}>
-            <Icon name="search" size={18} color="#666" />
-          </View>
-        </View> */}
+          <TextInput
+            placeholder='Destination'
+            value={destination}
+            onChangeText={setDestination}
+            style={styles.input}
+          />
 
-        {/* MAP */}
-        <Text style={styles.section}>Tap map to add stop</Text>
-        <View style={{ position: 'relative' }}>
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            ref={mapRef}
-            style={styles.map}
-            showsUserLocation={true}
-            followsUserLocation={true}
-            showsMyLocationButton={false}
-            showsCompass={true}
-            onPress={handleMapPress}
-          >
-            {selectedLocation && <Marker coordinate={selectedLocation} />}
+          {/* 🔥 ROUTE PREVIEW */}
+          {source && destination && (
+            <View style={styles.routePreview}>
+              <View style={styles.locationBox}>
+                <Icon name='location' size={16} color='#2ecc71' />
+                <Text style={styles.locationText}>{source}</Text>
+              </View>
 
-            {/* ALL STOPS */}
-            {stops.map((s, i) => (
-              <Marker
-                key={i}
-                coordinate={{
-                  latitude: parseFloat(s.latitude),
-                  longitude: parseFloat(s.longitude),
-                }}
-                title={s.stop_name}
-                pinColor='blue'
+              <Icon
+                name='swap-horizontal-outline'
+                size={22}
+                color={theme.colors.primary}
+                style={{ marginHorizontal: 10 }}
               />
-            ))}
-          </MapView>
-          <TouchableOpacity
-            style={styles.locationBtn}
-            onPress={moveToCurrentLocation}
-          >
-            <Icon name='locate' size={24} color='#fff' />
-          </TouchableOpacity>
-        </View>
-        {/* SELECTED */}
-        {selectedLocation && (
-          <View style={styles.selectedBox}>
-            <Text style={{ marginBottom: 5 }}>{selectedLocation.name}</Text>
 
-            <TouchableOpacity style={styles.addBtn} onPress={handleAddStop}>
-              <Text style={{ color: '#fff' }}>Add Stop</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* STOP LIST */}
-        {stops.map((stop, index) => (
-          <View key={index} style={styles.stopCard}>
-            <View style={{ flex: 1 }}>
-              <Text numberOfLines={1}>{stop.stop_name}</Text>
-              <Text style={{ fontSize: 12 }}>
-                {stop.latitude}, {stop.longitude}
-              </Text>
+              <View style={styles.locationBox}>
+                <Icon name='flag-outline' size={16} color='#e74c3c' />
+                <Text style={styles.locationText}>{destination}</Text>
+              </View>
             </View>
+          )}
 
-            <TouchableOpacity onPress={() => removeStop(index)}>
-              <Icon name='trash' size={18} color='red' />
+          <TextInput
+            placeholder='Estimated Time'
+            value={time}
+            editable={false}
+            style={[styles.input, { backgroundColor: '#f1f3f6' }]}
+          />
+
+          {/* MAP */}
+          <View
+            style={[
+              styles.tapHintCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            <Icon
+              name='information-circle-outline'
+              size={18}
+              color={theme.colors.icon}
+            />
+            <Text style={[styles.tapHintText, { color: theme.colors.text }]}>
+              Tap anywhere on the map to add a new stop
+            </Text>
+          </View>
+          <View style={{ position: 'relative' }}>
+            <MapView
+              provider={PROVIDER_GOOGLE}
+              ref={mapRef}
+              style={styles.map}
+              showsUserLocation={true}
+              followsUserLocation={true}
+              showsMyLocationButton={false}
+              showsCompass={true}
+              onPress={handleMapPress}
+            >
+              {selectedLocation && <Marker coordinate={selectedLocation} />}
+
+              {/* ALL STOPS */}
+              {stops.map((s, i) => (
+                <Marker
+                  key={i}
+                  coordinate={{
+                    latitude: parseFloat(s.latitude),
+                    longitude: parseFloat(s.longitude),
+                  }}
+                  title={s.stop_name}
+                  pinColor='blue'
+                />
+              ))}
+            </MapView>
+            <TouchableOpacity
+              style={styles.locationBtn}
+              onPress={moveToCurrentLocation}
+            >
+              <Icon name='locate' size={24} color='#fff' />
             </TouchableOpacity>
           </View>
-        ))}
+          {/* SELECTED */}
+          {selectedLocation && (
+            <View style={styles.selectedBox}>
+              <Text style={{ marginBottom: 5 }}>{selectedLocation.name}</Text>
 
-        {/* BUTTON */}
-        <TouchableOpacity
-          style={styles.submitBtn}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-            {loading ? 'Saving...' : 'Save Route'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+              <TouchableOpacity style={styles.addBtn} onPress={handleAddStop}>
+                <Text style={{ color: '#fff' }}>Add Stop</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* STOP LIST */}
+          {stops.map((stop, index) => (
+            <View key={index} style={styles.stopCard}>
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1}>{stop.stop_name}</Text>
+                <Text style={{ fontSize: 12 }}>
+                  {stop.latitude}, {stop.longitude}
+                </Text>
+              </View>
+
+              <TouchableOpacity onPress={() => removeStop(index)}>
+                <Icon name='trash' size={18} color='red' />
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          {/* BUTTON */}
+          <TouchableOpacity
+            style={styles.submitBtn}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+              {loading ? 'Saving...' : 'Save Route'}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    </SafeAreaProvider>
   )
 }
 
@@ -615,5 +590,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
+  },
+  tapHintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 10,
+    elevation: 2,
+    marginBottom: '-2',
+    marginTop: 7,
+  },
+
+  tapHintText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
   },
 })

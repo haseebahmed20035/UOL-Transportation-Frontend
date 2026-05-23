@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import BackgroundService from 'react-native-background-actions'
-import Geolocation from 'react-native-geolocation-service';
+import Geolocation from '@react-native-community/geolocation'
 import { BASE_URL } from '../services/baseUrl'
 
 const sleep = time => new Promise(resolve => setTimeout(resolve, time))
@@ -28,9 +28,11 @@ const getCurrentLocation = () => {
         resolve(null)
       },
       {
-        enableHighAccuracy: false,
-        timeout: 20000,
-        maximumAge: 10000,
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0,
+        forceRequestLocation: true,
+        showLocationDialog: true,
       },
     )
   })

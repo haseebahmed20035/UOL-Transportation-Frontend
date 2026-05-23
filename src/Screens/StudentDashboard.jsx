@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ThemeContext } from '../context/ThemeContext'
 import { BASE_URL, endPoints } from '../services/baseUrl'
 import { fetchAndShowUserNotifications } from '../utils/notificationHelper'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 const StudentDashboard = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -284,15 +285,15 @@ const StudentDashboard = ({ navigation }) => {
       screen: 'StudentNotification',
     },
 
-    {
-      title: 'Bus Schedule',
+    // {
+    //   title: 'Bus Schedule',
 
-      icon: 'calendar',
+    //   icon: 'calendar',
 
-      color: '#FF9800',
+    //   color: '#FF9800',
 
-      screen: 'BusSchedule',
-    },
+    //   screen: 'BusSchedule',
+    // },
 
     {
       title: 'Complaints',
@@ -334,356 +335,411 @@ const StudentDashboard = ({ navigation }) => {
   )
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: '#f5f7fb',
-        },
-      ]}
-    >
-      <StatusBar
-        backgroundColor={theme.colors.primary}
-        barStyle='light-content'
-      />
-
-      {/* HEADER */}
+    <SafeAreaProvider>
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.colors.primary,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.headerLeft}>
-          <Image source={require('../Images/uol.png')} style={styles.logo} />
+        <StatusBar
+          backgroundColor={theme.colors.primary}
+          barStyle='light-content'
+        />
 
-          <View>
-            <Text style={styles.headerTitle}>Student Dashboard</Text>
-
-            <Text style={styles.headerSub}>UOL Transportation</Text>
-          </View>
-        </View>
-
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('StudentNotification')}
-          >
-            <Icon name='notifications-outline' size={24} color='white' />
-
-            {unreadNotificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNotificationCount > 99
-                    ? '99+'
-                    : unreadNotificationCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.avatar} onPress={menuAnimation}>
-            <Text style={styles.avatarText}>
-              {student?.name?.charAt(0) || 'S'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      {/* DROPDOWN */}
-      {menuVisible && (
-        <Animated.View
+        {/* HEADER */}
+        <View
           style={[
-            styles.dropdown,
+            styles.header,
             {
-              opacity: fadeAnim,
-
-              transform: [
-                {
-                  scale: fadeAnim,
-                },
-              ],
+              backgroundColor: theme.colors.primary,
             },
           ]}
         >
-          <View style={styles.profileTop}>
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileCircleText}>
-                {student?.name?.charAt(0) || 'S'}
-              </Text>
-            </View>
+          <View style={styles.headerLeft}>
+            <Image source={require('../Images/uol.png')} style={styles.logo} />
 
-            <Text style={styles.profileName}>{student?.name}</Text>
+            <View>
+              <Text style={styles.headerTitle}>Student Dashboard</Text>
 
-            <Text style={styles.profileRole}>Student</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigateAndTrack('MyPersonalInfo')}
-          >
-            <Icon name='person-outline' size={20} color='#175812' />
-
-            <Text style={styles.menuText}>Profile</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigateAndTrack('AppSettings')}
-          >
-            <Icon name='settings-outline' size={20} color='#175812' />
-
-            <Text style={styles.menuText}>Settings</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigateAndTrack('Help')}
-          >
-            <Icon name='help-circle-outline' size={20} color='#175812' />
-
-            <Text style={styles.menuText}>Help Center</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={() => {
-              Alert.alert('Logout', 'Are you sure?', [
-                {
-                  text: 'Cancel',
-
-                  style: 'cancel',
-                },
-
-                {
-                  text: 'Logout',
-
-                  onPress: () => navigation.replace('Login'),
-                },
-              ])
-            }}
-          >
-            <Icon name='log-out-outline' size={20} color='white' />
-
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: 40,
-        }}
-      >
-        {/* WELCOME CARD */}
-        <View style={styles.welcomeCard}>
-          <View
-            style={{
-              flex: 1,
-            }}
-          >
-            <Text style={styles.welcomeTitle}>
-              Welcome, {student?.name || 'Student'}
-              👋
-            </Text>
-
-            <Text style={styles.welcomeSubtitle}>
-              {liveBusData?.isLive
-                ? `Bus arriving in ${
-                    liveBusData?.eta || 'Calculating...'
-                  }. Your route is active today.`
-                : 'Your bus is not live right now. You can check again when the driver starts the ride.'}
-            </Text>
-
-            <View style={styles.liveChip}>
-              <Icon
-                name='radio-button-on'
-                size={12}
-                color={liveBusData?.isLive ? '#4CAF50' : '#FF9800'}
-              />
-
-              <Text style={styles.liveChipText}>
-                {liveBusData?.isLive
-                  ? 'Transport Active'
-                  : 'Transport Inactive'}
-              </Text>
+              <Text style={styles.headerSub}>UOL Transportation</Text>
             </View>
           </View>
 
-          <Image
-            source={{
-              uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135755.png',
-            }}
-            style={styles.studentImage}
-          />
-        </View>
-
-        {/* LIVE TRACKING */}
-        <View style={styles.liveCard}>
-          <View style={styles.liveTop}>
+          <View style={styles.headerRight}>
             <TouchableOpacity
-              style={{ flex: 1 }}
-              onPress={() => {
-                navigateAndTrack('LiveBusTracking')
-              }}
+              style={styles.iconBtn}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('StudentNotification')}
             >
-              <Text style={styles.liveTitle}>Live Bus Status</Text>
+              <Icon name='notifications-outline' size={24} color='white' />
 
-              <Text style={styles.liveSub}>
-                {liveBusLoading
-                  ? 'Loading bus details...'
-                  : `Bus #${liveBusData?.busNumber || 'Not Assigned'}`}
-              </Text>
-
-              <Text style={styles.liveRouteText}>
-                {liveBusData?.routeName || 'No active route found'}
-              </Text>
-            </TouchableOpacity>
-
-            <View
-              style={[
-                styles.liveBadge,
-                {
-                  backgroundColor: liveBusData?.isLive ? '#e53935' : '#9E9E9E',
-                },
-              ]}
-            >
-              <Text style={styles.liveBadgeText}>
-                {liveBusData?.isLive ? 'LIVE' : 'OFFLINE'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.liveRow}>
-            <View style={styles.liveItem}>
-              <Icon name='location' size={22} color='#2196F3' />
-
-              <Text style={styles.liveItemTitle}>Current Stop</Text>
-
-              <Text style={styles.liveItemValue}>
-                {liveBusData?.currentStop || 'Not Available'}
-              </Text>
-            </View>
-
-            <View style={styles.liveItem}>
-              <Icon name='time' size={22} color='#FF9800' />
-
-              <Text style={styles.liveItemTitle}>ETA</Text>
-
-              <Text style={styles.liveItemValue}>
-                {liveBusData?.eta || 'N/A'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* QUICK ACTIONS */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-        </View>
-
-        <View style={styles.grid}>
-          {quickActions.map(item => (
-            <TouchableOpacity
-              key={item.title}
-              style={styles.actionCard}
-              onPress={() => navigateAndTrack(item.screen)}
-            >
-              <View
-                style={[
-                  styles.iconBox,
-                  {
-                    backgroundColor: item.color,
-                  },
-                ]}
-              >
-                <Icon name={item.icon} size={28} color='white' />
-              </View>
-
-              {item.title === 'Notifications' && unreadNotificationCount > 0 && (
-                <View style={styles.actionBadge}>
-                  <Text style={styles.actionBadgeText}>
+              {unreadNotificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
                     {unreadNotificationCount > 99
                       ? '99+'
                       : unreadNotificationCount}
                   </Text>
                 </View>
               )}
-
-              <Text style={styles.actionTitle}>{item.title}</Text>
             </TouchableOpacity>
-          ))}
+            <TouchableOpacity style={styles.avatar} onPress={menuAnimation}>
+              <Text style={styles.avatarText}>
+                {student?.name?.charAt(0) || 'S'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
+        {/* DROPDOWN */}
+        {menuVisible && (
+          <Animated.View
+            style={[
+              styles.dropdown,
+              {
+                opacity: fadeAnim,
 
-        {/* SEARCH */}
-        <View style={styles.searchCard}>
-          <View style={styles.searchWrapper}>
-            <Icon name='search' size={18} color='gray' />
+                transform: [
+                  {
+                    scale: fadeAnim,
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.profileTop}>
+              <View style={styles.profileCircle}>
+                <Text style={styles.profileCircleText}>
+                  {student?.name?.charAt(0) || 'S'}
+                </Text>
+              </View>
 
-            <TextInput
-              placeholder='Search feature...'
-              value={searchText}
-              onChangeText={setSearchText}
-              style={styles.searchInput}
+              <Text style={styles.profileName}>{student?.name}</Text>
+
+              <Text style={styles.profileRole}>Student</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateAndTrack('MyPersonalInfo')}
+            >
+              <Icon name='person-outline' size={20} color='#175812' />
+
+              <Text style={styles.menuText}>Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateAndTrack('AppSettings')}
+            >
+              <Icon name='settings-outline' size={20} color='#175812' />
+
+              <Text style={styles.menuText}>Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateAndTrack('Help')}
+            >
+              <Icon name='help-circle-outline' size={20} color='#175812' />
+
+              <Text style={styles.menuText}>Help Center</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={() => {
+                Alert.alert('Logout', 'Are you sure?', [
+                  {
+                    text: 'Cancel',
+
+                    style: 'cancel',
+                  },
+
+                  {
+                    text: 'Logout',
+
+                    onPress: () => navigation.replace('Login'),
+                  },
+                ])
+              }}
+            >
+              <Icon name='log-out-outline' size={20} color='white' />
+
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        <ScrollView
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingBottom: 40,
+          }}
+        >
+          {/* WELCOME CARD */}
+          <View
+            style={[
+              styles.welcomeCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            <View
+              style={{
+                flex: 1,
+              }}
+            >
+              <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>
+                Welcome, {student?.name || 'Student'}
+                👋
+              </Text>
+
+              <Text
+                style={[styles.welcomeSubtitle, { color: theme.colors.text }]}
+              >
+                {liveBusData?.isLive
+                  ? `Bus arriving in ${
+                      liveBusData?.eta || 'Calculating...'
+                    }. Your route is active today.`
+                  : 'Your bus is not live right now. You can check again when the driver starts the ride.'}
+              </Text>
+
+              <View style={styles.liveChip}>
+                <Icon
+                  name='radio-button-on'
+                  size={12}
+                  color={liveBusData?.isLive ? '#4CAF50' : '#FF9800'}
+                />
+
+                <Text style={styles.liveChipText}>
+                  {liveBusData?.isLive
+                    ? 'Transport Active'
+                    : 'Transport Inactive'}
+                </Text>
+              </View>
+            </View>
+
+            <Image
+              source={{
+                uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135755.png',
+              }}
+              style={styles.studentImage}
             />
           </View>
 
-          {searchText !== '' &&
-            filteredScreens.map((item, index) => (
+          {/* LIVE TRACKING */}
+          <View
+            style={[
+              styles.liveCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            <View style={styles.liveTop}>
               <TouchableOpacity
-                key={index}
-                style={styles.searchResult}
+                style={{ flex: 1 }}
+                onPress={() => {
+                  navigateAndTrack('LiveBusTracking')
+                }}
+              >
+                <Text style={[styles.liveTitle, { color: theme.colors.text }]}>
+                  Live Bus Status
+                </Text>
+
+                <Text style={styles.liveSub}>
+                  {liveBusLoading
+                    ? 'Loading bus details...'
+                    : `Bus #${liveBusData?.busNumber || 'Not Assigned'}`}
+                </Text>
+
+                <Text style={styles.liveRouteText}>
+                  {liveBusData?.routeName || 'No active route found'}
+                </Text>
+              </TouchableOpacity>
+
+              <View
+                style={[
+                  styles.liveBadge,
+                  {
+                    backgroundColor: liveBusData?.isLive
+                      ? '#e53935'
+                      : '#9E9E9E',
+                  },
+                ]}
+              >
+                <Text style={styles.liveBadgeText}>
+                  {liveBusData?.isLive ? 'LIVE' : 'OFFLINE'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.liveRow}>
+              <View style={styles.liveItem}>
+                <Icon name='location' size={22} color='#2196F3' />
+
+                <Text style={[styles.liveItemTitle]}>Current Stop</Text>
+
+                <Text style={styles.liveItemValue}>
+                  {liveBusData?.currentStop || 'Not Available'}
+                </Text>
+              </View>
+
+              <View style={styles.liveItem}>
+                <Icon name='time' size={22} color='#FF9800' />
+
+                <Text style={styles.liveItemTitle}>ETA</Text>
+
+                <Text style={styles.liveItemValue}>
+                  {liveBusData?.eta || 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* QUICK ACTIONS */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Quick Actions
+            </Text>
+          </View>
+
+          <View style={styles.grid}>
+            {quickActions.map(item => (
+              <TouchableOpacity
+                key={item.title}
+                style={[
+                  styles.actionCard,
+                  { backgroundColor: theme.colors.dashboard },
+                ]}
                 onPress={() => navigateAndTrack(item.screen)}
               >
-                <Text
-                  style={{
-                    color: '#111',
-                  }}
+                <View
+                  style={[
+                    styles.iconBox,
+                    {
+                      backgroundColor: item.color,
+                    },
+                  ]}
                 >
-                  🔍 {item.title}
+                  <Icon name={item.icon} size={28} color='white' />
+                </View>
+
+                {item.title === 'Notifications' && unreadNotificationCount > 0 && (
+                  <View style={styles.actionBadge}>
+                    <Text style={styles.actionBadgeText}>
+                      {unreadNotificationCount > 99
+                        ? '99+'
+                        : unreadNotificationCount}
+                    </Text>
+                  </View>
+                )}
+
+                <Text
+                  style={[styles.actionTitle, { color: theme.colors.text }]}
+                >
+                  {item.title}
                 </Text>
               </TouchableOpacity>
             ))}
-        </View>
+          </View>
 
-        {/* RECENT */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Activities</Text>
-        </View>
+          {/* SEARCH */}
+          <View
+            style={[
+              styles.searchCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            <View
+              style={[
+                styles.searchWrapper,
+                { backgroundColor: theme.colors.background },
+              ]}
+            >
+              <Icon name='search' size={18} color={theme.colors.icon} />
 
-        <View style={styles.recentCard}>
-          {recentScreens.length === 0 ? (
-            <Text style={styles.noRecentText}>No recent activities</Text>
-          ) : (
-            recentScreens.map((item, index) => (
-              <View key={index} style={styles.recentItem}>
-                <Icon name='time-outline' size={18} color='#175812' />
+              <TextInput
+                placeholder='Search feature...'
+                value={searchText}
+                onChangeText={setSearchText}
+                style={styles.searchInput}
+              />
+            </View>
 
-                <View>
-                  <Text style={styles.recentText}>{item.name}</Text>
-
+            {searchText !== '' &&
+              filteredScreens.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.searchResult,
+                    { backgroundColor: theme.colors.dashboard },
+                  ]}
+                  onPress={() => navigateAndTrack(item.screen)}
+                >
                   <Text
                     style={{
-                      color: '#777',
-                      fontSize: 11,
-                      marginLeft: 10,
-                      marginTop: 2,
+                      color: '#111',
                     }}
                   >
-                    {item.time}
+                    🔍 {item.title}
                   </Text>
+                </TouchableOpacity>
+              ))}
+          </View>
+
+          {/* RECENT */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Recent Activities
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.recentCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            {recentScreens.length === 0 ? (
+              <Text style={[styles.noRecentText, { color: theme.colors.text }]}>
+                No recent activities
+              </Text>
+            ) : (
+              recentScreens.map((item, index) => (
+                <View key={index} style={styles.recentItem}>
+                  <Icon
+                    name='time-outline'
+                    size={18}
+                    color={theme.colors.icon}
+                  />
+
+                  <View>
+                    <Text
+                      style={[styles.recentText, { color: theme.colors.text }]}
+                    >
+                      {item.name}
+                    </Text>
+
+                    <Text
+                      style={[
+                        {
+                          color: '#777',
+                          fontSize: 11,
+                          marginLeft: 10,
+                          marginTop: 2,
+                        },
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      {item.time}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
-    </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaProvider>
   )
 }
 

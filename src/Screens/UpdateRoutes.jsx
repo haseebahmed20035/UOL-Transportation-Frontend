@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react'
 import {
   StyleSheet,
   Text,
@@ -8,58 +8,57 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-} from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { ThemeContext } from '../context/ThemeContext';
-
-const GOOGLE_API_KEY = 'AIzaSyBG_tfwPfE3Bnn2-8CwNTOZuPd1c0Yr0Wc';
+} from 'react-native'
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete'
+import Icon from 'react-native-vector-icons/Ionicons'
+import { ThemeContext } from '../context/ThemeContext'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const UpdateRoutes = ({ navigation }) => {
-  const { theme } = useContext(ThemeContext);
-  const mapRef = useRef(null);
+  const { theme } = useContext(ThemeContext)
+  const mapRef = useRef(null)
 
-  const [routes, setRoutes] = useState([]);
-  const [selectedRoute, setSelectedRoute] = useState(null);
+  const [routes, setRoutes] = useState([])
+  const [selectedRoute, setSelectedRoute] = useState(null)
 
-  const [routeName, setRouteName] = useState('');
-  const [source, setSource] = useState('');
-  const [destination, setDestination] = useState('');
-  const [time, setTime] = useState('');
-  const [stops, setStops] = useState([]);
+  const [routeName, setRouteName] = useState('')
+  const [source, setSource] = useState('')
+  const [destination, setDestination] = useState('')
+  const [time, setTime] = useState('')
+  const [stops, setStops] = useState([])
 
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-
-  useEffect(() => {
-    fetchRoutes();
-  }, []);
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
-    autoCalculateTime();
-    autoSetSourceDestination();
-  }, [stops]);
+    fetchRoutes()
+  }, [])
+
+  useEffect(() => {
+    autoCalculateTime()
+    autoSetSourceDestination()
+  }, [stops])
 
   const fetchRoutes = async () => {
     try {
-      const res = await fetch('http://192.168.100.100:5000/routes-with-stops');
-      const data = await res.json();
-      setRoutes(data);
+      const res = await fetch(`${BASE_URL}/${endPoints.routesWithStops}`)
+      const data = await res.json()
+      setRoutes(data)
     } catch (err) {
-      Alert.alert('Error', 'Failed to load routes');
+      Alert.alert('Error', 'Failed to load routes')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleSelectRoute = route => {
-    setSelectedRoute(route);
-    setRouteName(route.route_name);
-    setSource(route.source);
-    setDestination(route.destination);
-    setTime(route.estimated_time);
-    setStops(route.stops || []);
+    setSelectedRoute(route)
+    setRouteName(route.route_name)
+    setSource(route.source)
+    setDestination(route.destination)
+    setTime(route.estimated_time)
+    setStops(route.stops || [])
 
     if (route.stops?.length > 0) {
       mapRef.current?.animateToRegion({
@@ -67,20 +66,20 @@ const UpdateRoutes = ({ navigation }) => {
         longitude: Number(route.stops[0].longitude),
         latitudeDelta: 0.04,
         longitudeDelta: 0.04,
-      });
+      })
     }
-  };
+  }
 
   const addStop = location => {
     const exists = stops.some(
       s =>
         Math.abs(Number(s.latitude) - Number(location.latitude)) < 0.0001 &&
         Math.abs(Number(s.longitude) - Number(location.longitude)) < 0.0001,
-    );
+    )
 
     if (exists) {
-      Alert.alert('Already Added', 'This stop already exists in route');
-      return;
+      Alert.alert('Already Added', 'This stop already exists in route')
+      return
     }
 
     setStops(prev => [
@@ -90,15 +89,15 @@ const UpdateRoutes = ({ navigation }) => {
         latitude: location.latitude,
         longitude: location.longitude,
       },
-    ]);
+    ])
 
     mapRef.current?.animateToRegion({
       latitude: location.latitude,
       longitude: location.longitude,
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
-    });
-  };
+    })
+  }
 
   const removeStop = index => {
     Alert.alert('Remove Stop', 'Are you sure you want to remove this stop?', [
@@ -107,59 +106,59 @@ const UpdateRoutes = ({ navigation }) => {
         text: 'Remove',
         style: 'destructive',
         onPress: () => {
-          setStops(prev => prev.filter((_, i) => i !== index));
+          setStops(prev => prev.filter((_, i) => i !== index))
         },
       },
-    ]);
-  };
+    ])
+  }
 
   const moveUp = index => {
-    if (index === 0) return;
+    if (index === 0) return
 
-    const updated = [...stops];
-    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
-    setStops(updated);
-  };
+    const updated = [...stops]
+    ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
+    setStops(updated)
+  }
 
   const moveDown = index => {
-    if (index === stops.length - 1) return;
+    if (index === stops.length - 1) return
 
-    const updated = [...stops];
-    [updated[index + 1], updated[index]] = [updated[index], updated[index + 1]];
-    setStops(updated);
-  };
+    const updated = [...stops]
+    ;[updated[index + 1], updated[index]] = [updated[index], updated[index + 1]]
+    setStops(updated)
+  }
 
   const autoSetSourceDestination = () => {
     if (stops.length > 0) {
-      setSource(stops[0].stop_name);
-      setDestination(stops[stops.length - 1].stop_name);
+      setSource(stops[0].stop_name)
+      setDestination(stops[stops.length - 1].stop_name)
     }
-  };
+  }
 
   const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const R = 6371
+    const dLat = (lat2 - lat1) * (Math.PI / 180)
+    const dLon = (lon2 - lon1) * (Math.PI / 180)
 
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * (Math.PI / 180)) *
         Math.cos(lat2 * (Math.PI / 180)) *
         Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        Math.sin(dLon / 2)
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-    return R * c;
-  };
+    return R * c
+  }
 
   const autoCalculateTime = () => {
     if (stops.length < 2) {
-      setTime('');
-      return;
+      setTime('')
+      return
     }
 
-    let totalDistance = 0;
+    let totalDistance = 0
 
     for (let i = 0; i < stops.length - 1; i++) {
       totalDistance += getDistanceInKm(
@@ -167,33 +166,33 @@ const UpdateRoutes = ({ navigation }) => {
         Number(stops[i].longitude),
         Number(stops[i + 1].latitude),
         Number(stops[i + 1].longitude),
-      );
+      )
     }
 
-    const avgSpeed = 30;
-    const travelTimeMinutes = (totalDistance / avgSpeed) * 60;
-    const stopDelay = (stops.length - 1) * 5;
-    const totalTime = Math.round(travelTimeMinutes + stopDelay);
+    const avgSpeed = 30
+    const travelTimeMinutes = (totalDistance / avgSpeed) * 60
+    const stopDelay = (stops.length - 1) * 5
+    const totalTime = Math.round(travelTimeMinutes + stopDelay)
 
-    setTime(`${totalTime} mins`);
-  };
+    setTime(`${totalTime} mins`)
+  }
 
   const handleUpdateRoute = async () => {
     if (!selectedRoute) {
-      Alert.alert('Error', 'Please select a route first');
-      return;
+      Alert.alert('Error', 'Please select a route first')
+      return
     }
 
     if (!routeName || !source || !destination || stops.length < 2) {
-      Alert.alert('Error', 'Route name and at least 2 stops are required');
-      return;
+      Alert.alert('Error', 'Route name and at least 2 stops are required')
+      return
     }
 
-    setUpdating(true);
+    setUpdating(true)
 
     try {
       const res = await fetch(
-        `http://192.168.100.100:5000/update-route/${selectedRoute.id}`,
+        `${BASE_URL}/${endPoints.updateRoute}/${selectedRoute.id}`,
         {
           method: 'PUT',
           headers: {
@@ -207,27 +206,39 @@ const UpdateRoutes = ({ navigation }) => {
             stops,
           }),
         },
-      );
+      )
 
-      const data = await res.json();
+      const data = await res.json()
 
       if (res.ok) {
-        Alert.alert('Success', data.message || 'Route updated successfully');
-        fetchRoutes();
+        Alert.alert('Success', data.message || 'Route updated successfully')
+        fetchRoutes()
       } else {
-        Alert.alert('Error', data.message || 'Update failed');
+        Alert.alert('Error', data.message || 'Update failed')
       }
     } catch (err) {
-      Alert.alert('Error', 'Server error');
+      Alert.alert('Error', 'Server error')
     } finally {
-      setUpdating(false);
+      setUpdating(false)
     }
-  };
+  }
+
+  const addStopFromMapTap = event => {
+    const { latitude, longitude } = event.nativeEvent.coordinate
+
+    const newStopNumber = stops.length + 1
+
+    addStop({
+      name: `Stop ${newStopNumber}`,
+      latitude,
+      longitude,
+    })
+  }
 
   const polylineCoords = stops.map(stop => ({
     latitude: Number(stop.latitude),
     longitude: Number(stop.longitude),
-  }));
+  }))
 
   return (
     <View
@@ -235,7 +246,7 @@ const UpdateRoutes = ({ navigation }) => {
     >
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={26} color="#fff" />
+          <Icon name='arrow-back' size={26} color='#fff' />
         </TouchableOpacity>
 
         <Text style={styles.headerText}>Update Route</Text>
@@ -245,12 +256,12 @@ const UpdateRoutes = ({ navigation }) => {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size='large' color={theme.colors.primary} />
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps='handled'
         >
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
             Select Route
@@ -277,7 +288,7 @@ const UpdateRoutes = ({ navigation }) => {
 
                 {selectedRoute?.id === item.id && (
                   <Icon
-                    name="checkmark-circle"
+                    name='checkmark-circle'
                     size={22}
                     color={theme.colors.primary}
                   />
@@ -286,21 +297,21 @@ const UpdateRoutes = ({ navigation }) => {
 
               <View style={styles.routeFlow}>
                 <View style={styles.locationBox}>
-                  <Icon name="location" size={16} color="#2ecc71" />
+                  <Icon name='location' size={16} color='#2ecc71' />
                   <Text numberOfLines={1} style={styles.locationText}>
                     {item.source}
                   </Text>
                 </View>
 
                 <Icon
-                  name="swap-horizontal-outline"
+                  name='swap-horizontal-outline'
                   size={22}
                   color={theme.colors.primary}
                   style={{ marginHorizontal: 10 }}
                 />
 
                 <View style={styles.locationBox}>
-                  <Icon name="flag-outline" size={16} color="#e74c3c" />
+                  <Icon name='flag-outline' size={16} color='#e74c3c' />
                   <Text numberOfLines={1} style={styles.locationText}>
                     {item.destination}
                   </Text>
@@ -323,7 +334,7 @@ const UpdateRoutes = ({ navigation }) => {
               </Text>
 
               <TextInput
-                placeholder="Route Name"
+                placeholder='Route Name'
                 value={routeName}
                 onChangeText={setRouteName}
                 style={styles.input}
@@ -331,21 +342,21 @@ const UpdateRoutes = ({ navigation }) => {
 
               <View style={styles.previewCard}>
                 <View style={styles.locationBox}>
-                  <Icon name="location" size={16} color="#2ecc71" />
+                  <Icon name='location' size={16} color='#2ecc71' />
                   <Text numberOfLines={1} style={styles.locationText}>
                     {source || 'Source'}
                   </Text>
                 </View>
 
                 <Icon
-                  name="swap-horizontal-outline"
+                  name='swap-horizontal-outline'
                   size={22}
                   color={theme.colors.primary}
                   style={{ marginHorizontal: 10 }}
                 />
 
                 <View style={styles.locationBox}>
-                  <Icon name="flag-outline" size={16} color="#e74c3c" />
+                  <Icon name='flag-outline' size={16} color='#e74c3c' />
                   <Text numberOfLines={1} style={styles.locationText}>
                     {destination || 'Destination'}
                   </Text>
@@ -353,7 +364,7 @@ const UpdateRoutes = ({ navigation }) => {
               </View>
 
               <TextInput
-                placeholder="Estimated Time"
+                placeholder='Estimated Time'
                 value={time}
                 editable={false}
                 style={[styles.input, styles.disabledInput]}
@@ -404,11 +415,31 @@ const UpdateRoutes = ({ navigation }) => {
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                 Route Preview
               </Text>
-
+              <View
+                style={[
+                  styles.tapHintCard,
+                  { backgroundColor: theme.colors.dashboard },
+                ]}
+              >
+                <Icon
+                  name='information-circle-outline'
+                  size={18}
+                  color={theme.colors.icon}
+                />
+                <Text
+                  style={[styles.tapHintText, { color: theme.colors.text }]}
+                >
+                  Tap anywhere on the map to add a new stop
+                </Text>
+              </View>
               <MapView
                 provider={PROVIDER_GOOGLE}
                 ref={mapRef}
                 style={styles.map}
+                mapType='standard'
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+                onPress={addStopFromMapTap}
                 initialRegion={{
                   latitude: Number(stops[0]?.latitude || 31.5204),
                   longitude: Number(stops[0]?.longitude || 74.3587),
@@ -448,13 +479,22 @@ const UpdateRoutes = ({ navigation }) => {
               </Text>
 
               {stops.map((stop, index) => (
-                <View key={index} style={styles.stopCard}>
+                <View
+                  key={index}
+                  style={[
+                    styles.stopCard,
+                    { backgroundColor: theme.colors.dashboard },
+                  ]}
+                >
                   <View style={styles.stopIndex}>
                     <Text style={styles.stopIndexText}>{index + 1}</Text>
                   </View>
 
                   <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} style={styles.stopName}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.stopName, { color: theme.colors.text }]}
+                    >
                       {index === 0
                         ? '🏫 '
                         : index === stops.length - 1
@@ -463,7 +503,7 @@ const UpdateRoutes = ({ navigation }) => {
                       {stop.stop_name}
                     </Text>
 
-                    <Text style={styles.coords}>
+                    <Text style={[styles.coords, { color: theme.colors.text }]}>
                       {stop.latitude}, {stop.longitude}
                     </Text>
                   </View>
@@ -471,18 +511,18 @@ const UpdateRoutes = ({ navigation }) => {
                   <View style={styles.actionRow}>
                     {index > 0 && (
                       <TouchableOpacity onPress={() => moveUp(index)}>
-                        <Icon name="arrow-up-circle" size={22} color="#555" />
+                        <Icon name='arrow-up-circle' size={22} color='#555' />
                       </TouchableOpacity>
                     )}
 
                     {index < stops.length - 1 && (
                       <TouchableOpacity onPress={() => moveDown(index)}>
-                        <Icon name="arrow-down-circle" size={22} color="#555" />
+                        <Icon name='arrow-down-circle' size={22} color='#555' />
                       </TouchableOpacity>
                     )}
 
                     <TouchableOpacity onPress={() => removeStop(index)}>
-                      <Icon name="trash" size={22} color="#e74c3c" />
+                      <Icon name='trash' size={22} color='#e74c3c' />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -507,10 +547,10 @@ const UpdateRoutes = ({ navigation }) => {
         </ScrollView>
       )}
     </View>
-  );
-};
+  )
+}
 
-export default UpdateRoutes;
+export default UpdateRoutes
 
 const styles = StyleSheet.create({
   container: {
@@ -723,4 +763,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 15,
   },
-});
+  tapHintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 10,
+    elevation: 2,
+  },
+
+  tapHintText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+})

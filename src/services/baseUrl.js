@@ -18,4 +18,9 @@ export const endPoints = {
   markNotificationRead: `user-notifications/read`,
   unreadNotificationCount: `user-notifications/unread-count`,
   clearUserNotifications: 'clear-user-notifications',
+  routesWithStops: `routes-with-stops`,
+  requestTransport:`request-transport`,
+  updateRoute:`update-route`,
+  adminDashboardStats: `admin-dashboard-stats`,
+  addRoute: `add-route`,
 }

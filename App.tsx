@@ -43,8 +43,6 @@ import BusList from './src/Screens/BusList'
 import StudentsReq from './src/Screens/StudentsReq'
 import AllStudents from './src/Screens/AllStudents'
 import StudentComplaints from './src/Screens/StudentComplaints'
-import StudentAttendance from './src/Screens/StudentAttendance'
-import StudentHistory from './src/Screens/StudentHistory'
 import AddStudents from './src/Screens/AddStudents'
 import ChangePassword from './src/Screens/changePassword'
 import StudentComplaint from './src/Screens/StudentComplaint'
@@ -156,8 +154,6 @@ const App = () => {
         <Stack.Screen name="AllStudents" component={AllStudents} />
         <Stack.Screen name="StudentsReq" component={StudentsReq} />
         <Stack.Screen name="StudentComplaints" component={StudentComplaints} />
-        <Stack.Screen name="StudentAttendance" component={StudentAttendance} />
-        <Stack.Screen name="StudentHistory" component={StudentHistory} />
         <Stack.Screen name="AddStudents" component={AddStudents} />
         <Stack.Screen name="ChangePassword" component={ChangePassword} />
         <Stack.Screen name="StudentComplaint" component={StudentComplaint} />

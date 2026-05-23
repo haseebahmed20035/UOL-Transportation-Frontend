@@ -14,13 +14,14 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Icon from 'react-native-vector-icons/Ionicons'
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
-import Geolocation from 'react-native-geolocation-service';
+import Geolocation from '@react-native-community/geolocation'
 import { ThemeContext } from '../context/ThemeContext'
 import { BASE_URL } from '../services/baseUrl'
 import {
   startTripLocationService,
   stopTripLocationService,
 } from '../services/TripLocationService'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 const DEFAULT_LOCATION = {
   latitude: 31.5204,
@@ -55,6 +56,18 @@ const TripControl = ({ navigation }) => {
   const [lastLocationTime, setLastLocationTime] = useState(null)
   const [trackingActive, setTrackingActive] = useState(false)
   const [distanceFromStart, setDistanceFromStart] = useState(null)
+
+  const requestNotificationPermission = async () => {
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      )
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED
+    }
+
+    return true
+  }
 
   useEffect(() => {
     if (!tripStarted) return
@@ -366,9 +379,11 @@ const TripControl = ({ navigation }) => {
             resolve(null)
           },
           {
-            enableHighAccuracy: false,
-            timeout: 20000,
-            maximumAge: 10000,
+            enableHighAccuracy: true,
+            timeout: 30000,
+            maximumAge: 0,
+            forceRequestLocation: true,
+            showLocationDialog: true,
           },
         )
       } catch (error) {
@@ -462,6 +477,18 @@ const TripControl = ({ navigation }) => {
         setTripStarted(true)
         setTrackingActive(true)
         setElapsedSeconds(0)
+
+        const hasNotificationPermission = await requestNotificationPermission()
+
+        if (!hasNotificationPermission) {
+          Alert.alert(
+            'Notification Permission Required',
+            'Please allow notification permission so live tracking can run properly.',
+          )
+          return
+        }
+
+        await startTripLocationService(assignedTrip)
 
         await startTripLocationService(assignedTrip)
 
@@ -590,10 +617,12 @@ const TripControl = ({ navigation }) => {
           setTrackingActive(false)
         },
         {
-          enableHighAccuracy: false,
-          distanceFilter: 20,
-          interval: 8000,
-          fastestInterval: 5000,
+          enableHighAccuracy: true,
+          distanceFilter: 10,
+          interval: 5000,
+          fastestInterval: 2000,
+          forceRequestLocation: true,
+          showLocationDialog: true,
         },
       )
     } catch (error) {
@@ -806,351 +835,346 @@ const TripControl = ({ navigation }) => {
   }
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={26} color={theme.colors.background} />
-        </TouchableOpacity>
+    <SafeAreaProvider>
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <View
+          style={[styles.header, { backgroundColor: theme.colors.primary }]}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name='arrow-back' size={26} color={theme.colors.background} />
+          </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.background }]}>
-          Trip Control
-        </Text>
+          <Text style={[styles.headerText, { color: theme.colors.background }]}>
+            Trip Control
+          </Text>
 
-        <View style={{ width: 26 }} />
-      </View>
+          <View style={{ width: 26 }} />
+        </View>
 
-      <View style={styles.mapContainer}>
-        {locationReady && currentLocation ? (
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_GOOGLE}
-            style={styles.map}
-            mapType='standard'
-            initialRegion={{
-              latitude: Number(
-                currentLocation?.latitude || DEFAULT_LOCATION.latitude,
-              ),
-              longitude: Number(
-                currentLocation?.longitude || DEFAULT_LOCATION.longitude,
-              ),
-              latitudeDelta: 0.012,
-              longitudeDelta: 0.012,
-            }}
-            showsUserLocation={false}
-            showsMyLocationButton={false}
-            showsCompass={true}
-            showsScale={true}
-            showsBuildings={true}
-            showsTraffic={true}
-            showsIndoors={true}
-            toolbarEnabled={false}
-          >
-            <Marker
-              coordinate={{
-                latitude: Number(currentLocation.latitude),
-                longitude: Number(currentLocation.longitude),
+        <View style={styles.mapContainer}>
+          {locationReady && currentLocation ? (
+            <MapView
+              ref={mapRef}
+              provider={PROVIDER_GOOGLE}
+              style={styles.map}
+              mapType='standard'
+              initialRegion={{
+                latitude: Number(
+                  currentLocation?.latitude || DEFAULT_LOCATION.latitude,
+                ),
+                longitude: Number(
+                  currentLocation?.longitude || DEFAULT_LOCATION.longitude,
+                ),
+                latitudeDelta: 0.012,
+                longitudeDelta: 0.012,
               }}
-              title='Your Current Location'
-              description='Driver mobile location'
+              showsUserLocation={false}
+              showsMyLocationButton={false}
+              showsCompass={true}
+              showsScale={true}
+              showsBuildings={true}
+              showsTraffic={true}
+              showsIndoors={true}
+              toolbarEnabled={false}
+              showsPointsOfInterest={true}
+              loadingEnabled={true}
             >
-              <View style={styles.busMarker}>
-                <Icon name='bus' size={22} color='#fff' />
-              </View>
-            </Marker>
-
-            {startingPoint && (
               <Marker
                 coordinate={{
-                  latitude: startingPoint.latitude,
-                  longitude: startingPoint.longitude,
+                  latitude: Number(currentLocation.latitude),
+                  longitude: Number(currentLocation.longitude),
                 }}
-                title='Route Starting Point'
-                description={startingPoint.name}
+                title='Your Current Location'
+                description='Driver mobile location'
               >
-                <View style={styles.startMarker}>
-                  <Icon name='flag' size={18} color='#fff' />
+                <View style={styles.busMarker}>
+                  <Icon name='bus' size={22} color='#fff' />
                 </View>
               </Marker>
-            )}
 
-            {routeCoordinates.length > 0 && (
-              <Polyline
-                coordinates={routeCoordinates}
-                strokeWidth={4}
-                strokeColor={theme.colors.primary || '#175812'}
-              />
-            )}
-
-            {assignedTrip?.stops?.map((stop, index) => {
-              const lat = Number(stop.latitude)
-              const lng = Number(stop.longitude)
-
-              if (Number.isNaN(lat) || Number.isNaN(lng)) return null
-
-              return (
+              {startingPoint && (
                 <Marker
-                  key={`${stop.stop_name || 'stop'}-${index}`}
-                  coordinate={{ latitude: lat, longitude: lng }}
-                  title={String(stop.stop_name || `Stop ${index + 1}`)}
-                  description={`Stop ${index + 1}`}
+                  coordinate={{
+                    latitude: startingPoint.latitude,
+                    longitude: startingPoint.longitude,
+                  }}
+                  title='Route Starting Point'
+                  description={startingPoint.name}
                 >
-                  <View
-                    style={[
-                      styles.stopMarker,
-                      stopStatus.nextStopNumber === index + 1 &&
-                        styles.nextStopMapMarker,
-                    ]}
-                  >
-                    {stopStatus.nextStopNumber === index + 1 ? (
-                      <Icon name='flag' size={15} color='#fff' />
-                    ) : (
-                      <Text style={styles.stopMarkerText}>{index + 1}</Text>
-                    )}
+                  <View style={styles.startMarker}>
+                    <Icon name='flag' size={18} color='#fff' />
                   </View>
                 </Marker>
-              )
-            })}
-          </MapView>
-        ) : (
-          <View style={styles.mapFallback}>
-            <ActivityIndicator size='large' color={theme.colors.primary} />
-            <Text
-              style={[styles.mapFallbackText, { color: theme.colors.text }]}
-            >
-              Preparing map...
-            </Text>
-          </View>
-        )}
+              )}
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.recenterButton}
-          onPress={async () => {
-            const hasPermission = await requestLocationPermission()
-            if (!hasPermission) {
-              Alert.alert(
-                'Permission Required',
-                'Please allow location permission.',
-              )
-              return
-            }
+              {routeCoordinates.length > 0 && (
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeWidth={4}
+                  strokeColor={theme.colors.primary || '#175812'}
+                />
+              )}
 
-            const location = await getCurrentLocationSafely()
-            if (!location) {
-              Alert.alert('Location Error', 'Unable to get current location.')
-            }
-          }}
-        >
-          <Icon name='locate' size={22} color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
+              {assignedTrip?.stops?.map((stop, index) => {
+                const lat = Number(stop.latitude)
+                const lng = Number(stop.longitude)
 
-      <View
-        style={[
-          styles.bottomSheet,
-          {
-            backgroundColor: theme.colors.box || '#fff',
-            borderColor: theme.colors.border || '#E6E8EC',
-          },
-        ]}
-      >
-        <View style={styles.dragHandle} />
+                if (Number.isNaN(lat) || Number.isNaN(lng)) return null
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 16 }}
-        >
-          <View style={styles.statusRow}>
-            <View>
-              <Text style={[styles.statusLabel, { color: theme.colors.text }]}>
-                Trip Status
-              </Text>
-
+                return (
+                  <Marker
+                    key={`${stop.stop_name || 'stop'}-${index}`}
+                    coordinate={{ latitude: lat, longitude: lng }}
+                    title={String(stop.stop_name || `Stop ${index + 1}`)}
+                    description={`Stop ${index + 1}`}
+                  >
+                    <View
+                      style={[
+                        styles.stopMarker,
+                        stopStatus.nextStopNumber === index + 1 &&
+                          styles.nextStopMapMarker,
+                      ]}
+                    >
+                      {stopStatus.nextStopNumber === index + 1 ? (
+                        <Icon name='flag' size={15} color='#fff' />
+                      ) : (
+                        <Text style={styles.stopMarkerText}>{index + 1}</Text>
+                      )}
+                    </View>
+                  </Marker>
+                )
+              })}
+            </MapView>
+          ) : (
+            <View style={styles.mapFallback}>
+              <ActivityIndicator size='large' color={theme.colors.primary} />
               <Text
-                style={[
-                  styles.statusValue,
-                  { color: tripStarted ? '#0A8F3C' : '#D97706' },
-                ]}
+                style={[styles.mapFallbackText, { color: theme.colors.text }]}
               >
-                {tripStarted ? 'Running Live' : 'Not Started'}
+                Preparing map...
               </Text>
             </View>
+          )}
 
-            <View
-              style={[
-                styles.liveBadge,
-                { backgroundColor: tripStarted ? '#E8F8EF' : '#FFF7E6' },
-              ]}
-            >
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.recenterButton}
+            onPress={async () => {
+              const hasPermission = await requestLocationPermission()
+              if (!hasPermission) {
+                Alert.alert(
+                  'Permission Required',
+                  'Please allow location permission.',
+                )
+                return
+              }
+
+              const location = await getCurrentLocationSafely()
+              if (!location) {
+                Alert.alert('Location Error', 'Unable to get current location.')
+              }
+            }}
+          >
+            <Icon name='locate' size={22} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={[
+            styles.bottomSheet,
+            {
+              backgroundColor: theme.colors.box || '#fff',
+              borderColor: theme.colors.border || '#E6E8EC',
+            },
+          ]}
+        >
+          <View style={styles.dragHandle} />
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 16 }}
+          >
+            <View style={styles.statusRow}>
+              <View>
+                <Text
+                  style={[styles.statusLabel, { color: theme.colors.text }]}
+                >
+                  Trip Status
+                </Text>
+
+                <Text
+                  style={[
+                    styles.statusValue,
+                    { color: tripStarted ? '#0A8F3C' : '#D97706' },
+                  ]}
+                >
+                  {tripStarted ? 'Running Live' : 'Not Started'}
+                </Text>
+              </View>
+
               <View
                 style={[
-                  styles.liveDot,
-                  { backgroundColor: tripStarted ? '#0A8F3C' : '#D97706' },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.liveBadgeText,
-                  { color: tripStarted ? '#0A8F3C' : '#D97706' },
+                  styles.liveBadge,
+                  { backgroundColor: tripStarted ? '#E8F8EF' : '#FFF7E6' },
                 ]}
               >
-                {tripStarted ? 'LIVE' : 'IDLE'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.timerCard}>
-            <View style={styles.timerIconBox}>
-              <Icon
-                name='timer-outline'
-                size={24}
-                color={theme.colors.primary}
-              />
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.timerLabel}>Ride Duration</Text>
-              <Text style={[styles.timerValue, { color: theme.colors.text }]}>
-                {formatDuration(elapsedSeconds)}
-              </Text>
-            </View>
-
-            {tripStarted && (
-              <View style={styles.trackingPill}>
                 <View
                   style={[
-                    styles.trackingDot,
-                    { backgroundColor: trackingActive ? '#0A8F3C' : '#D97706' },
+                    styles.liveDot,
+                    { backgroundColor: tripStarted ? '#0A8F3C' : '#D97706' },
                   ]}
                 />
                 <Text
                   style={[
-                    styles.trackingText,
-                    { color: trackingActive ? '#0A8F3C' : '#D97706' },
+                    styles.liveBadgeText,
+                    { color: tripStarted ? '#0A8F3C' : '#D97706' },
                   ]}
                 >
-                  {trackingActive ? 'GPS Active' : 'GPS Waiting'}
+                  {tripStarted ? 'LIVE' : 'IDLE'}
                 </Text>
               </View>
-            )}
-          </View>
+            </View>
 
-          {tripStarted && (
-            <View style={styles.nextStopCard}>
-              <View style={styles.nextStopTop}>
-                <Animated.View
-                  style={[
-                    styles.nextStopIconCircle,
-                    {
-                      transform: [{ scale: pulseAnim }],
-                      backgroundColor: theme.colors.primary || '#175812',
-                    },
-                  ]}
-                >
-                  <Icon name='flag-outline' size={24} color='#fff' />
-                </Animated.View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.nextStopSmallLabel}>Next Stop</Text>
-
-                  <Text
-                    style={[styles.nextStopName, { color: theme.colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {stopStatus.nextStop?.name || 'Final stop reached'}
-                  </Text>
-
-                  <Text style={styles.nextStopDistance}>
-                    {stopStatus.distanceToNextStop !== null
-                      ? `${Math.round(
-                          stopStatus.distanceToNextStop,
-                        )} meters away`
-                      : 'Waiting for GPS update'}
-                  </Text>
-                </View>
-
-                <View style={styles.nextStopBadge}>
-                  <Text style={styles.nextStopBadgeText}>
-                    {stopStatus.nextStopNumber
-                      ? `Stop ${stopStatus.nextStopNumber}`
-                      : 'End'}
-                  </Text>
-                </View>
+            <View style={styles.timerCard}>
+              <View style={styles.timerIconBox}>
+                <Icon
+                  name='timer-outline'
+                  size={24}
+                  color={theme.colors.primary}
+                />
               </View>
 
-              <View style={styles.animatedRouteBox}>
-                <View style={styles.routeMiniDotActive} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.timerLabel}>Ride Duration</Text>
+                <Text style={[styles.timerValue, { color: theme.colors.text }]}>
+                  {formatDuration(elapsedSeconds)}
+                </Text>
+              </View>
 
-                <View style={styles.animatedRouteLine}>
+              {tripStarted && (
+                <View style={styles.trackingPill}>
+                  <View
+                    style={[
+                      styles.trackingDot,
+                      {
+                        backgroundColor: trackingActive ? '#0A8F3C' : '#D97706',
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.trackingText,
+                      { color: trackingActive ? '#0A8F3C' : '#D97706' },
+                    ]}
+                  >
+                    {trackingActive ? 'GPS Active' : 'GPS Waiting'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {tripStarted && (
+              <View style={styles.nextStopCard}>
+                <View style={styles.nextStopTop}>
                   <Animated.View
                     style={[
-                      styles.movingMiniBus,
+                      styles.nextStopIconCircle,
                       {
-                        transform: [{ translateX: animatedBusTranslate }],
+                        transform: [{ scale: pulseAnim }],
+                        backgroundColor: theme.colors.primary || '#175812',
                       },
                     ]}
                   >
-                    <Icon name='bus' size={13} color='#fff' />
+                    <Icon name='flag-outline' size={24} color='#fff' />
                   </Animated.View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nextStopSmallLabel}>Next Stop</Text>
+
+                    <Text
+                      style={[
+                        styles.nextStopName,
+                        { color: theme.colors.text },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {stopStatus.nextStop?.name || 'Final stop reached'}
+                    </Text>
+
+                    <Text style={styles.nextStopDistance}>
+                      {stopStatus.distanceToNextStop !== null
+                        ? `${Math.round(
+                            stopStatus.distanceToNextStop,
+                          )} meters away`
+                        : 'Waiting for GPS update'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.nextStopBadge}>
+                    <Text style={styles.nextStopBadgeText}>
+                      {stopStatus.nextStopNumber
+                        ? `Stop ${stopStatus.nextStopNumber}`
+                        : 'End'}
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={styles.routeMiniDotNext} />
-              </View>
+                <View style={styles.animatedRouteBox}>
+                  <View style={styles.routeMiniDotActive} />
 
-              <View style={styles.currentStopBox}>
-                <Icon
-                  name='location-outline'
-                  size={17}
-                  color={theme.colors.primary}
-                />
+                  <View style={styles.animatedRouteLine}>
+                    <Animated.View
+                      style={[
+                        styles.movingMiniBus,
+                        {
+                          transform: [{ translateX: animatedBusTranslate }],
+                        },
+                      ]}
+                    >
+                      <Icon name='bus' size={13} color='#fff' />
+                    </Animated.View>
+                  </View>
 
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.currentStopLabel}>
-                    Nearest Current Stop
-                  </Text>
+                  <View style={styles.routeMiniDotNext} />
+                </View>
 
-                  <Text
-                    style={[
-                      styles.currentStopValue,
-                      { color: theme.colors.text },
-                    ]}
-                  >
-                    {stopStatus.currentStop?.name ||
-                      'Detecting current stop...'}
-                  </Text>
+                <View style={styles.currentStopBox}>
+                  <Icon
+                    name='location-outline'
+                    size={17}
+                    color={theme.colors.primary}
+                  />
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.currentStopLabel}>
+                      Nearest Current Stop
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.currentStopValue,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      {stopStatus.currentStop?.name ||
+                        'Detecting current stop...'}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
+            )}
 
-          <View style={styles.locationInfoCard}>
-            <Icon
-              name='navigate-outline'
-              size={18}
-              color={theme.colors.primary}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.locationInfoLabel}>Last Location Update</Text>
-              <Text
-                style={[styles.locationInfoValue, { color: theme.colors.text }]}
-              >
-                {formatLastLocationTime(lastLocationTime)}
-              </Text>
-            </View>
-          </View>
-
-          {distanceFromStart !== null && (
             <View style={styles.locationInfoCard}>
               <Icon
-                name='flag-outline'
+                name='navigate-outline'
                 size={18}
                 color={theme.colors.primary}
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.locationInfoLabel}>
-                  Distance From Start
+                  Last Location Update
                 </Text>
                 <Text
                   style={[
@@ -1158,172 +1182,207 @@ const TripControl = ({ navigation }) => {
                     { color: theme.colors.text },
                   ]}
                 >
-                  {Math.round(distanceFromStart)} meters
+                  {formatLastLocationTime(lastLocationTime)}
                 </Text>
               </View>
             </View>
-          )}
 
-          {assignedTrip ? (
-            <>
-              <View style={styles.tripCard}>
-                <View style={styles.tripIconBox}>
-                  <Icon
-                    name='bus-outline'
-                    size={24}
-                    color={theme.colors.primary}
-                  />
-                </View>
-
+            {distanceFromStart !== null && (
+              <View style={styles.locationInfoCard}>
+                <Icon
+                  name='flag-outline'
+                  size={18}
+                  color={theme.colors.primary}
+                />
                 <View style={{ flex: 1 }}>
-                  <Text
-                    style={[styles.busNumber, { color: theme.colors.text }]}
-                  >
-                    {assignedTrip.bus_number || 'Assigned Bus'}
+                  <Text style={styles.locationInfoLabel}>
+                    Distance From Start
                   </Text>
-
-                  <Text style={styles.routeName}>
-                    {assignedTrip.route_name || 'Assigned Route'}
+                  <Text
+                    style={[
+                      styles.locationInfoValue,
+                      { color: theme.colors.text },
+                    ]}
+                  >
+                    {Math.round(distanceFromStart)} meters
                   </Text>
                 </View>
               </View>
+            )}
 
-              <View style={styles.routeBox}>
-                <View style={styles.routePointRow}>
-                  <View style={styles.greenPoint} />
+            {assignedTrip ? (
+              <>
+                <View style={styles.tripCard}>
+                  <View style={styles.tripIconBox}>
+                    <Icon
+                      name='bus-outline'
+                      size={24}
+                      color={theme.colors.primary}
+                    />
+                  </View>
+
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.routePointLabel}>From</Text>
                     <Text
-                      style={[
-                        styles.routePointText,
-                        { color: theme.colors.text },
-                      ]}
+                      style={[styles.busNumber, { color: theme.colors.text }]}
                     >
-                      {assignedTrip.source || 'Source not available'}
+                      {assignedTrip.bus_number || 'Assigned Bus'}
+                    </Text>
+
+                    <Text style={styles.routeName}>
+                      {assignedTrip.route_name || 'Assigned Route'}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.routeLine} />
+                <View style={styles.routeBox}>
+                  <View style={styles.routePointRow}>
+                    <View style={styles.greenPoint} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.routePointLabel}>From</Text>
+                      <Text
+                        style={[
+                          styles.routePointText,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {assignedTrip.source || 'Source not available'}
+                      </Text>
+                    </View>
+                  </View>
 
-                <View style={styles.routePointRow}>
-                  <View style={styles.redPoint} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.routePointLabel}>To</Text>
+                  <View style={styles.routeLine} />
+
+                  <View style={styles.routePointRow}>
+                    <View style={styles.redPoint} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.routePointLabel}>To</Text>
+                      <Text
+                        style={[
+                          styles.routePointText,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {assignedTrip.destination ||
+                          'Destination not available'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.infoGrid}>
+                  <View style={styles.infoCard}>
+                    <Icon
+                      name='time-outline'
+                      size={19}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={styles.infoLabel}>Estimated Time</Text>
                     <Text
-                      style={[
-                        styles.routePointText,
-                        { color: theme.colors.text },
-                      ]}
+                      style={[styles.infoValue, { color: theme.colors.text }]}
                     >
-                      {assignedTrip.destination || 'Destination not available'}
+                      {assignedTrip.estimated_time || 'N/A'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoCard}>
+                    <Icon
+                      name='location-outline'
+                      size={19}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={styles.infoLabel}>Stops</Text>
+                    <Text
+                      style={[styles.infoValue, { color: theme.colors.text }]}
+                    >
+                      {assignedTrip?.stops?.length || 0}
                     </Text>
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.infoGrid}>
-                <View style={styles.infoCard}>
-                  <Icon
-                    name='time-outline'
-                    size={19}
-                    color={theme.colors.primary}
-                  />
-                  <Text style={styles.infoLabel}>Estimated Time</Text>
-                  <Text
-                    style={[styles.infoValue, { color: theme.colors.text }]}
+                {tripStarted ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={[
+                      styles.actionButton,
+                      { backgroundColor: '#DC2626' },
+                    ]}
+                    onPress={endTrip}
+                    disabled={endingTrip}
                   >
-                    {assignedTrip.estimated_time || 'N/A'}
-                  </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                  <Icon
-                    name='location-outline'
-                    size={19}
-                    color={theme.colors.primary}
-                  />
-                  <Text style={styles.infoLabel}>Stops</Text>
-                  <Text
-                    style={[styles.infoValue, { color: theme.colors.text }]}
+                    {endingTrip ? (
+                      <View style={styles.buttonLoaderRow}>
+                        <ActivityIndicator color='#fff' size='small' />
+                        <Text style={styles.actionButtonText}>
+                          Ending Ride...
+                        </Text>
+                      </View>
+                    ) : (
+                      <>
+                        <Icon
+                          name='stop-circle-outline'
+                          size={22}
+                          color='#fff'
+                        />
+                        <Text style={styles.actionButtonText}>End Ride</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={[
+                      styles.actionButton,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={startTrip}
+                    disabled={startingTrip}
                   >
-                    {assignedTrip?.stops?.length || 0}
-                  </Text>
-                </View>
+                    {startingTrip ? (
+                      <View style={styles.buttonLoaderRow}>
+                        <ActivityIndicator color='#fff' size='small' />
+                        <Text style={styles.actionButtonText}>
+                          Checking Location...
+                        </Text>
+                      </View>
+                    ) : (
+                      <>
+                        <Icon
+                          name='play-circle-outline'
+                          size={22}
+                          color='#fff'
+                        />
+                        <Text style={styles.actionButtonText}>Start Ride</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+
+                {!tripStarted && elapsedSeconds > 0 && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={styles.resetButton}
+                    onPress={resetRideTimer}
+                  >
+                    <Icon name='refresh-outline' size={18} color='#6B7280' />
+                    <Text style={styles.resetButtonText}>Reset Timer</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <View style={styles.emptyCard}>
+                <Icon name='bus-outline' size={42} color='#A1A1AA' />
+                <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                  No Assigned Trip
+                </Text>
+                <Text style={styles.emptyText}>
+                  No bus or route is assigned to your driver account yet.
+                </Text>
               </View>
-
-              {tripStarted ? (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  style={[styles.actionButton, { backgroundColor: '#DC2626' }]}
-                  onPress={endTrip}
-                  disabled={endingTrip}
-                >
-                  {endingTrip ? (
-                    <View style={styles.buttonLoaderRow}>
-                      <ActivityIndicator color='#fff' size='small' />
-                      <Text style={styles.actionButtonText}>
-                        Ending Ride...
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      <Icon name='stop-circle-outline' size={22} color='#fff' />
-                      <Text style={styles.actionButtonText}>End Ride</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  style={[
-                    styles.actionButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                  onPress={startTrip}
-                  disabled={startingTrip}
-                >
-                  {startingTrip ? (
-                    <View style={styles.buttonLoaderRow}>
-                      <ActivityIndicator color='#fff' size='small' />
-                      <Text style={styles.actionButtonText}>
-                        Checking Location...
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      <Icon name='play-circle-outline' size={22} color='#fff' />
-                      <Text style={styles.actionButtonText}>Start Ride</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-
-              {!tripStarted && elapsedSeconds > 0 && (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  style={styles.resetButton}
-                  onPress={resetRideTimer}
-                >
-                  <Icon name='refresh-outline' size={18} color='#6B7280' />
-                  <Text style={styles.resetButtonText}>Reset Timer</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          ) : (
-            <View style={styles.emptyCard}>
-              <Icon name='bus-outline' size={42} color='#A1A1AA' />
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-                No Assigned Trip
-              </Text>
-              <Text style={styles.emptyText}>
-                No bus or route is assigned to your driver account yet.
-              </Text>
-            </View>
-          )}
-        </ScrollView>
+            )}
+          </ScrollView>
+        </View>
       </View>
-    </View>
+    </SafeAreaProvider>
   )
 }
 

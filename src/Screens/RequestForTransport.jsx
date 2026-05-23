@@ -11,8 +11,8 @@ import React, { useContext, useEffect, useState } from 'react'
 import Icon from 'react-native-vector-icons/Ionicons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ThemeContext } from '../context/ThemeContext'
-
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const RequestForTransport = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -26,9 +26,7 @@ const RequestForTransport = ({ navigation }) => {
 
   const fetchRoutes = async () => {
     try {
-      const response = await fetch(
-        'http://192.168.100.100:5000/routes-with-stops',
-      )
+      const response = await fetch(`${BASE_URL}/${endPoints.routesWithStops}`)
 
       const json = await response.json()
 
@@ -54,7 +52,7 @@ const RequestForTransport = ({ navigation }) => {
       }
 
       const response = await fetch(
-        'http://192.168.100.100:5000/request-transport',
+        `${BASE_URL}/${endPoints.requestTransport}`,
         {
           method: 'POST',
           headers: {
@@ -120,14 +118,14 @@ const RequestForTransport = ({ navigation }) => {
         ]}
       >
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={26} color={theme.colors.background} />
+          <Icon name='arrow-back' size={26} color={theme.colors.text} />
         </TouchableOpacity>
 
         <Text
           style={[
             styles.headerText,
             {
-              color: theme.colors.background,
+              color: theme.colors.text,
             },
           ]}
         >
@@ -141,20 +139,13 @@ const RequestForTransport = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.body}
       >
-        <Text
-          style={[
-            styles.title,
-            {
-              color: theme.colors.text,
-            },
-          ]}
-        >
+        <Text style={[styles.title,{color: theme.colors.text,},]}>
           Available Routes
         </Text>
 
         {routes.map((route, index) => (
           <View
-           key={route.id}
+            key={route.id}
             style={[
               styles.routeCard,
               {
@@ -174,7 +165,7 @@ const RequestForTransport = ({ navigation }) => {
                     },
                   ]}
                 >
-                  <Icon name='bus' size={24} color={theme.colors.primary} />
+                  <Icon name='bus' size={24} color={theme.colors.text} />
                 </View>
 
                 <View style={{ flex: 1 }}>
@@ -193,7 +184,7 @@ const RequestForTransport = ({ navigation }) => {
                     style={[
                       styles.routePath,
                       {
-                        color: theme.colors.subtext,
+                        color: theme.colors.text,
                       },
                     ]}
                   >
@@ -210,17 +201,13 @@ const RequestForTransport = ({ navigation }) => {
                   },
                 ]}
               >
-                <Icon
-                  name='time-outline'
-                  size={14}
-                  color={theme.colors.primary}
-                />
+                <Icon name='time-outline' size={14} color={theme.colors.text} />
 
                 <Text
                   style={[
                     styles.timeText,
                     {
-                      color: theme.colors.primary,
+                      color: theme.colors.text,
                     },
                   ]}
                 >
@@ -312,11 +299,7 @@ const RequestForTransport = ({ navigation }) => {
                       },
                     ]}
                   >
-                    <Icon
-                      name='location'
-                      size={12}
-                      color={theme.colors.primary}
-                    />
+                    <Icon name='location' size={12} color={theme.colors.text} />
 
                     <Text
                       style={[
@@ -339,7 +322,7 @@ const RequestForTransport = ({ navigation }) => {
                 style={[
                   styles.stopCount,
                   {
-                    color: theme.colors.subtext,
+                    color: theme.colors.text,
                   },
                 ]}
               >

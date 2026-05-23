@@ -36,6 +36,7 @@ export const ThemeProvider = ({ children }) => {
       border: darkMode ? '#406B49' : 'rgba(26,128,63,0.5)',
       text: darkMode ? '#FFFFFF' : '#0F2F1B',
       icon: darkMode ? '#FFFFFF' : '#175812',
+      dashboard: darkMode ? '#2D4733' : '#FFFFFF',
     }
   };
   return (

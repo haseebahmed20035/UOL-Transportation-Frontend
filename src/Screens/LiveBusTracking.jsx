@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from 'react'
 import {
   StyleSheet,
   Text,
@@ -8,291 +8,477 @@ import {
   Alert,
   ScrollView,
   Platform,
-} from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import notifee, { AndroidImportance } from "@notifee/react-native";
-import { ThemeContext } from "../context/ThemeContext";
+} from 'react-native'
+import Icon from 'react-native-vector-icons/Ionicons'
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import axios from 'axios'
+import notifee, { AndroidImportance } from '@notifee/react-native'
+import { ThemeContext } from '../context/ThemeContext'
 import { BASE_URL } from '../services/baseUrl'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
-const NEAR_STOP_DISTANCE_METERS = 300;
-const LOCATION_REFRESH_INTERVAL = 5000;
+const NEAR_STOP_DISTANCE_METERS = 300
+const LOCATION_REFRESH_INTERVAL = 5000
 
 const LiveBusTracking = ({ navigation }) => {
-  const { theme } = useContext(ThemeContext);
+  const { theme } = useContext(ThemeContext)
 
-  const mapRef = useRef(null);
-  const notificationSentRef = useRef(false);
+  const mapRef = useRef(null)
+  const intervalRef = useRef(null)
+  const mountedRef = useRef(true)
+  const notificationSentRef = useRef(false)
 
-  const [loading, setLoading] = useState(true);
-  const [refreshingLocation, setRefreshingLocation] = useState(false);
+  const [loading, setLoading] = useState(true)
+  const [refreshingLocation, setRefreshingLocation] = useState(false)
 
-  const [busData, setBusData] = useState(null);
-  const [busLocation, setBusLocation] = useState(null);
-  const [studentStop, setStudentStop] = useState(null);
-  const [routeStops, setRouteStops] = useState([]);
-  const [distanceToStop, setDistanceToStop] = useState(null);
+  const [busData, setBusData] = useState(null)
+  const [busLocation, setBusLocation] = useState(null)
+  const [studentStop, setStudentStop] = useState(null)
+  const [routeStops, setRouteStops] = useState([])
+  const [distanceToStop, setDistanceToStop] = useState(null)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
 
   useEffect(() => {
-    setupNotificationPermission();
-    fetchLiveBusTracking(true);
+    mountedRef.current = true
 
-    const interval = setInterval(() => {
-      fetchLiveBusTracking(false);
-    }, LOCATION_REFRESH_INTERVAL);
+    setupNotificationPermission()
+    fetchLiveBusTracking(true)
 
-    return () => clearInterval(interval);
-  }, []);
+    intervalRef.current = setInterval(() => {
+      fetchLiveBusTracking(false)
+    }, LOCATION_REFRESH_INTERVAL)
+
+    return () => {
+      mountedRef.current = false
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [])
 
   const setupNotificationPermission = async () => {
     try {
-      await notifee.requestPermission();
+      await notifee.requestPermission()
 
-      if (Platform.OS === "android") {
+      if (Platform.OS === 'android') {
         await notifee.createChannel({
-          id: "bus_tracking",
-          name: "Bus Tracking",
+          id: 'bus_tracking',
+          name: 'Bus Tracking',
           importance: AndroidImportance.HIGH,
-          sound: "default",
-        });
+          sound: 'default',
+        })
       }
     } catch (error) {
-      console.log("Notification permission error:", error);
+      console.log('Notification permission error:', error)
     }
-  };
+  }
 
-  const showBusNearNotification = async (stopName) => {
+  const showBusNearNotification = async stopName => {
     try {
       await notifee.displayNotification({
-        title: "Bus is near your stop",
-        body: `Your bus is near ${stopName || "your location"}. Please be ready.`,
+        title: 'Bus is near your stop',
+        body: `Your bus is near ${stopName || 'your stop'}. Please be ready.`,
         android: {
-          channelId: "bus_tracking",
-          smallIcon: "ic_launcher",
+          channelId: 'bus_tracking',
+          smallIcon: 'ic_launcher',
           pressAction: {
-            id: "default",
+            id: 'default',
           },
         },
-      });
+      })
     } catch (error) {
-      console.log("Notification error:", error);
+      console.log('Notification error:', error)
     }
-  };
+  }
 
-  const fetchLiveBusTracking = async (showLoader) => {
+  const getStudentIdFromUser = user => {
+    return (
+      user?.student_id ||
+      user?.studentId ||
+      user?.student?.id ||
+      user?.id ||
+      user?.user_id ||
+      user?.userId
+    )
+  }
+
+  const toNumberOrNull = value => {
+    const numberValue = Number(value)
+    return Number.isFinite(numberValue) ? numberValue : null
+  }
+
+  const getBusLatitude = bus => {
+    return toNumberOrNull(
+      bus?.latitude ||
+        bus?.current_latitude ||
+        bus?.lat ||
+        bus?.bus_latitude ||
+        bus?.location?.latitude ||
+        bus?.location?.lat,
+    )
+  }
+
+  const getBusLongitude = bus => {
+    return toNumberOrNull(
+      bus?.longitude ||
+        bus?.current_longitude ||
+        bus?.lng ||
+        bus?.bus_longitude ||
+        bus?.location?.longitude ||
+        bus?.location?.lng,
+    )
+  }
+
+  const getStopLatitude = stop => {
+    return toNumberOrNull(stop?.latitude || stop?.lat || stop?.stop_latitude)
+  }
+
+  const getStopLongitude = stop => {
+    return toNumberOrNull(stop?.longitude || stop?.lng || stop?.stop_longitude)
+  }
+
+  const normalizeApiData = responseData => {
+    const rootData = responseData?.data || responseData
+
+    const bus =
+      rootData?.bus ||
+      rootData?.liveBus ||
+      rootData?.assignedBus ||
+      rootData?.tracking ||
+      rootData
+
+    const stop =
+      rootData?.studentStop ||
+      rootData?.student_stop ||
+      rootData?.stop ||
+      rootData?.assignedStop ||
+      rootData?.pickupStop ||
+      null
+
+    const stops =
+      rootData?.routeStops ||
+      rootData?.route_stops ||
+      rootData?.stops ||
+      rootData?.route?.stops ||
+      []
+
+    return {
+      bus,
+      stop,
+      stops: Array.isArray(stops) ? stops : [],
+    }
+  }
+
+  const fetchLiveBusTracking = async showLoader => {
     try {
       if (showLoader) {
-        setLoading(true);
+        setLoading(true)
       } else {
-        setRefreshingLocation(true);
+        setRefreshingLocation(true)
       }
 
-      const storedUser = await AsyncStorage.getItem("user");
+      const storedUser = await AsyncStorage.getItem('user')
 
       if (!storedUser) {
-        Alert.alert("Login Required", "Student data not found. Please login again.");
-        setLoading(false);
-        setRefreshingLocation(false);
-        return;
+        if (showLoader) {
+          Alert.alert(
+            'Login Required',
+            'Student data not found. Please login again.',
+          )
+        }
+        resetTrackingData()
+        return
       }
 
-      const user = JSON.parse(storedUser);
-
-      const studentId =
-        user?.student_id ||
-        user?.studentId ||
-        user?.id ||
-        user?.user_id ||
-        user?.userId;
+      const user = JSON.parse(storedUser)
+      const studentId = getStudentIdFromUser(user)
 
       if (!studentId) {
-        Alert.alert("Error", "Student ID not found.");
-        setLoading(false);
-        setRefreshingLocation(false);
-        return;
+        if (showLoader) {
+          Alert.alert('Error', 'Student ID not found.')
+        }
+        resetTrackingData()
+        return
       }
 
       const response = await axios.get(
-        `${BASE_URL}/student/live-bus/${studentId}`
-      );
+        `${BASE_URL}/student/live-bus/${studentId}`,
+      )
 
-      const data = response.data;
+      const responseData = response.data
 
-      if (!data || data.success === false) {
-        setBusData(null);
-        setBusLocation(null);
-        setStudentStop(null);
-        setRouteStops([]);
-        setDistanceToStop(null);
-        return;
+      if (!responseData || responseData.success === false) {
+        resetTrackingData()
+        return
       }
 
-      const bus = data.bus || data.data?.bus || data;
-      const stop = data.studentStop || data.data?.studentStop || data.stop;
-      const stops = data.routeStops || data.data?.routeStops || [];
+      const { bus, stop, stops } = normalizeApiData(responseData)
 
-      const latitude = Number(bus.latitude || bus.current_latitude || bus.lat);
-      const longitude = Number(bus.longitude || bus.current_longitude || bus.lng);
+      const latitude = getBusLatitude(bus)
+      const longitude = getBusLongitude(bus)
 
-      const stopLatitude = Number(stop?.latitude || stop?.lat);
-      const stopLongitude = Number(stop?.longitude || stop?.lng);
+      const stopLatitude = getStopLatitude(stop)
+      const stopLongitude = getStopLongitude(stop)
 
-      if (!latitude || !longitude) {
-        setBusData(bus);
-        setBusLocation(null);
-        setStudentStop(stop || null);
-        setRouteStops(stops);
-        return;
+      const updatedStudentStop =
+        stopLatitude !== null && stopLongitude !== null
+          ? {
+              ...stop,
+              latitude: stopLatitude,
+              longitude: stopLongitude,
+            }
+          : stop || null
+
+      const formattedStops = stops
+        .map((item, index) => {
+          const lat = getStopLatitude(item)
+          const lng = getStopLongitude(item)
+
+          if (lat === null || lng === null) return null
+
+          return {
+            ...item,
+            latitude: lat,
+            longitude: lng,
+            stop_order: item?.stop_order || item?.order || index + 1,
+            stop_name: item?.stop_name || item?.name || `Stop ${index + 1}`,
+          }
+        })
+        .filter(Boolean)
+        .sort(
+          (a, b) =>
+            Number(a.stop_order || a.order || 0) -
+            Number(b.stop_order || b.order || 0),
+        )
+
+      setBusData(bus || null)
+      setStudentStop(updatedStudentStop)
+      setRouteStops(formattedStops)
+      setLastUpdatedAt(new Date())
+
+      if (latitude === null || longitude === null) {
+        setBusLocation(null)
+        setDistanceToStop(null)
+        return
       }
 
       const updatedBusLocation = {
         latitude,
         longitude,
-      };
+      }
 
-      setBusData(bus);
-      setBusLocation(updatedBusLocation);
-      setRouteStops(Array.isArray(stops) ? stops : []);
+      setBusLocation(updatedBusLocation)
 
-      if (stopLatitude && stopLongitude) {
-        const updatedStudentStop = {
-          ...stop,
-          latitude: stopLatitude,
-          longitude: stopLongitude,
-        };
-
-        setStudentStop(updatedStudentStop);
-
+      if (stopLatitude !== null && stopLongitude !== null) {
         const distance = calculateDistanceInMeters(
           latitude,
           longitude,
           stopLatitude,
-          stopLongitude
-        );
+          stopLongitude,
+        )
 
-        setDistanceToStop(distance);
+        setDistanceToStop(distance)
 
         if (
           distance <= NEAR_STOP_DISTANCE_METERS &&
           notificationSentRef.current === false
         ) {
-          notificationSentRef.current = true;
-          showBusNearNotification(updatedStudentStop.stop_name || updatedStudentStop.name);
+          notificationSentRef.current = true
+          showBusNearNotification(
+            updatedStudentStop?.stop_name || updatedStudentStop?.name,
+          )
         }
 
         if (distance > NEAR_STOP_DISTANCE_METERS + 200) {
-          notificationSentRef.current = false;
+          notificationSentRef.current = false
         }
+      } else {
+        setDistanceToStop(null)
       }
 
-      animateMapToBus(updatedBusLocation);
+      animateMap(updatedBusLocation, updatedStudentStop, formattedStops)
     } catch (error) {
-      console.log("Live tracking error:", error?.response?.data || error.message);
+      console.log(
+        'Live tracking error:',
+        error?.response?.data || error?.message,
+      )
 
       if (showLoader) {
         Alert.alert(
-          "Error",
-          "Unable to load live bus tracking. Please check your internet or backend."
-        );
+          'Error',
+          'Unable to load live bus tracking. Please check your internet or backend.',
+        )
       }
     } finally {
-      setLoading(false);
-      setRefreshingLocation(false);
+      if (mountedRef.current) {
+        setLoading(false)
+        setRefreshingLocation(false)
+      }
     }
-  };
+  }
 
-  const animateMapToBus = (location) => {
-    if (!mapRef.current || !location) return;
+  const resetTrackingData = () => {
+    setBusData(null)
+    setBusLocation(null)
+    setStudentStop(null)
+    setRouteStops([])
+    setDistanceToStop(null)
+    setLastUpdatedAt(null)
+  }
 
-    mapRef.current.animateToRegion(
-      {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      },
-      800
-    );
-  };
+  const animateMap = (busLoc, stop, stops) => {
+    if (!mapRef.current || !busLoc) return
+
+    const coordinates = [{ ...busLoc }]
+
+    if (stop?.latitude && stop?.longitude) {
+      coordinates.push({
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+      })
+    }
+
+    stops.forEach(item => {
+      if (item?.latitude && item?.longitude) {
+        coordinates.push({
+          latitude: item.latitude,
+          longitude: item.longitude,
+        })
+      }
+    })
+
+    setTimeout(() => {
+      try {
+        if (coordinates.length > 1) {
+          mapRef.current?.fitToCoordinates(coordinates, {
+            edgePadding: {
+              top: 90,
+              right: 60,
+              bottom: 310,
+              left: 60,
+            },
+            animated: true,
+          })
+        } else {
+          mapRef.current?.animateToRegion(
+            {
+              latitude: busLoc.latitude,
+              longitude: busLoc.longitude,
+              latitudeDelta: 0.025,
+              longitudeDelta: 0.025,
+            },
+            800,
+          )
+        }
+      } catch (error) {
+        console.log('Map animation error:', error)
+      }
+    }, 400)
+  }
 
   const calculateDistanceInMeters = (lat1, lon1, lat2, lon2) => {
-    const earthRadius = 6371000;
+    const earthRadius = 6371000
+    const toRadians = value => (value * Math.PI) / 180
 
-    const dLat = toRadians(lat2 - lat1);
-    const dLon = toRadians(lon2 - lon1);
+    const dLat = toRadians(lat2 - lat1)
+    const dLon = toRadians(lon2 - lon1)
 
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRadians(lat1)) *
         Math.cos(toRadians(lat2)) *
         Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        Math.sin(dLon / 2)
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-    return earthRadius * c;
-  };
+    return earthRadius * c
+  }
 
-  const toRadians = (value) => {
-    return (value * Math.PI) / 180;
-  };
-
-  const formatDistance = (meters) => {
-    if (meters === null || meters === undefined) return "Calculating...";
+  const formatDistance = meters => {
+    if (meters === null || meters === undefined) return 'Calculating...'
 
     if (meters < 1000) {
-      return `${Math.round(meters)} meters away`;
+      return `${Math.round(meters)} meters away`
     }
 
-    return `${(meters / 1000).toFixed(1)} km away`;
-  };
+    return `${(meters / 1000).toFixed(1)} km away`
+  }
 
   const getApproxArrivalTime = () => {
-    if (!distanceToStop) return "Calculating...";
+    if (distanceToStop === null || distanceToStop === undefined) {
+      return 'Calculating...'
+    }
 
-    const averageBusSpeedMetersPerMinute = 350;
+    const averageBusSpeedMetersPerMinute = 350
     const minutes = Math.max(
       1,
-      Math.round(distanceToStop / averageBusSpeedMetersPerMinute)
-    );
+      Math.round(distanceToStop / averageBusSpeedMetersPerMinute),
+    )
 
-    return `${minutes} mins`;
-  };
+    return `${minutes} mins`
+  }
 
   const getRouteCoordinates = () => {
-    const coordinates = [];
+    return routeStops
+      .map(stop => {
+        const lat = toNumberOrNull(stop.latitude)
+        const lng = toNumberOrNull(stop.longitude)
 
-    routeStops.forEach((stop) => {
-      const lat = Number(stop.latitude || stop.lat);
-      const lng = Number(stop.longitude || stop.lng);
+        if (lat === null || lng === null) return null
 
-      if (lat && lng) {
-        coordinates.push({
+        return {
           latitude: lat,
           longitude: lng,
-        });
-      }
-    });
+        }
+      })
+      .filter(Boolean)
+  }
 
-    return coordinates;
-  };
+  const isRideActive = (() => {
+    const status = String(
+      busData?.ride_status ||
+        busData?.trip_status ||
+        busData?.status ||
+        busData?.bus_status ||
+        '',
+    ).toLowerCase()
 
-  const isRideActive =
-    busData?.ride_status === "active" ||
-    busData?.status === "active" ||
-    busData?.is_active === 1 ||
-    busData?.is_active === true ||
-    busData?.is_running === 1 ||
-    busData?.is_running === true;
+    return (
+      status === 'running' ||
+      status === 'live' ||
+      status === 'active' ||
+      busData?.is_active === 1 ||
+      busData?.is_active === true ||
+      busData?.is_running === 1 ||
+      busData?.is_running === true
+    )
+  })()
 
   const routeTitle =
     busData?.route_name ||
-    `${busData?.source || "UOL"} → ${busData?.destination || "Destination"}`;
+    busData?.route?.route_name ||
+    `${busData?.source || busData?.route?.source || 'UOL'} → ${
+      busData?.destination || busData?.route?.destination || 'Destination'
+    }`
 
   const busNumber =
-    busData?.bus_number || busData?.bus_no || busData?.number || "Not Assigned";
+    busData?.bus_number ||
+    busData?.bus_no ||
+    busData?.number ||
+    busData?.bus?.bus_number ||
+    'Not Assigned'
+
+  const lastUpdatedText = lastUpdatedAt
+    ? `${String(lastUpdatedAt.getHours()).padStart(2, '0')}:${String(
+        lastUpdatedAt.getMinutes(),
+      ).padStart(2, '0')}:${String(lastUpdatedAt.getSeconds()).padStart(
+        2,
+        '0',
+      )}`
+    : 'Not updated yet'
 
   if (loading) {
     return (
@@ -303,286 +489,313 @@ const LiveBusTracking = ({ navigation }) => {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size='large' color={theme.colors.primary} />
         <Text style={[styles.loadingText, { color: theme.colors.text }]}>
           Loading live bus tracking...
         </Text>
       </View>
-    );
+    )
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: theme.colors.background },
-      ]}
-    >
-      {/* HEADER */}
+    <SafeAreaProvider>
       <View
-        style={[
-          styles.header,
-          { backgroundColor: theme.colors.primary },
-        ]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={theme.colors.background} />
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            styles.headerText,
-            { color: theme.colors.background },
-          ]}
+        <View
+          style={[styles.header, { backgroundColor: theme.colors.primary }]}
         >
-          Live Bus Tracking
-        </Text>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name='arrow-back' size={24} color={theme.colors.background} />
+          </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => fetchLiveBusTracking(false)}>
-          {refreshingLocation ? (
-            <ActivityIndicator size="small" color={theme.colors.background} />
-          ) : (
-            <Icon name="refresh" size={23} color={theme.colors.background} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {!busLocation ? (
-        <View style={styles.emptyContainer}>
-          <View
-            style={[
-              styles.emptyIconBox,
-              { backgroundColor: theme.colors.option },
-            ]}
-          >
-            <Icon name="bus-outline" size={42} color={theme.colors.primary} />
-          </View>
-
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-            No active bus tracking
+          <Text style={[styles.headerText, { color: theme.colors.background }]}>
+            Live Bus Tracking
           </Text>
 
-          <Text style={[styles.emptyMessage, { color: theme.colors.icon }]}>
-            Your assigned bus is not live right now. When the driver starts the
-            ride, you will see the bus location here.
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.retryButton,
-              { backgroundColor: theme.colors.primary },
-            ]}
-            onPress={() => fetchLiveBusTracking(true)}
-          >
-            <Icon name="refresh" size={18} color="#fff" />
-            <Text style={styles.retryButtonText}>Refresh</Text>
+          <TouchableOpacity onPress={() => fetchLiveBusTracking(false)}>
+            {refreshingLocation ? (
+              <ActivityIndicator size='small' color={theme.colors.background} />
+            ) : (
+              <Icon name='refresh' size={23} color={theme.colors.background} />
+            )}
           </TouchableOpacity>
         </View>
-      ) : (
-        <>
-          {/* MAP */}
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_GOOGLE}
-            style={styles.map}
-            initialRegion={{
-              latitude: busLocation.latitude,
-              longitude: busLocation.longitude,
-              latitudeDelta: 0.025,
-              longitudeDelta: 0.025,
-            }}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-            showsCompass={true}
-            showsTraffic={true}
-          >
-            {/* Route Line */}
-            {getRouteCoordinates().length > 1 && (
-              <Polyline
-                coordinates={getRouteCoordinates()}
-                strokeWidth={4}
-                strokeColor={theme.colors.primary}
-              />
-            )}
 
-            {/* Bus Marker */}
-            <Marker coordinate={busLocation} title="Your Bus">
-              <View style={styles.busMarker}>
-                <Icon name="bus" size={24} color="#fff" />
-              </View>
-            </Marker>
-
-            {/* Student Stop Marker */}
-            {studentStop && (
-              <Marker
-                coordinate={{
-                  latitude: studentStop.latitude,
-                  longitude: studentStop.longitude,
-                }}
-                title={studentStop.stop_name || studentStop.name || "Your Stop"}
-                description="Your pickup/drop location"
-              >
-                <View style={styles.stopMarker}>
-                  <Icon name="location" size={22} color="#fff" />
-                </View>
-              </Marker>
-            )}
-
-            {/* Other Route Stops */}
-            {routeStops.map((stop, index) => {
-              const lat = Number(stop.latitude || stop.lat);
-              const lng = Number(stop.longitude || stop.lng);
-
-              if (!lat || !lng) return null;
-
-              return (
-                <Marker
-                  key={`stop-${index}`}
-                  coordinate={{
-                    latitude: lat,
-                    longitude: lng,
-                  }}
-                  title={stop.stop_name || stop.name || `Stop ${index + 1}`}
-                >
-                  <View style={styles.smallStopMarker}>
-                    <Text style={styles.smallStopText}>{index + 1}</Text>
-                  </View>
-                </Marker>
-              );
-            })}
-          </MapView>
-
-          <ScrollView
-            style={styles.bottomSheet}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* ROUTE CARD */}
+        {!busLocation ? (
+          <View style={styles.emptyContainer}>
             <View
               style={[
-                styles.routeCard,
+                styles.emptyIconBox,
                 { backgroundColor: theme.colors.option },
               ]}
             >
-              <View style={styles.routeTopRow}>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.routeTitle,
-                      { color: theme.colors.text },
-                    ]}
-                  >
-                    {routeTitle}
-                  </Text>
+              <Icon name='bus-outline' size={42} color={theme.colors.primary} />
+            </View>
 
-                  <Text
-                    style={[
-                      styles.routeSubtitle,
-                      { color: theme.colors.icon },
-                    ]}
-                  >
-                    {studentStop?.stop_name || studentStop?.name
-                      ? `Your stop: ${studentStop.stop_name || studentStop.name}`
-                      : "Your stop is not available"}
-                  </Text>
+            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              No active bus tracking
+            </Text>
+
+            <Text style={[styles.emptyMessage, { color: theme.colors.icon }]}>
+              Your assigned bus is not live right now. When the driver starts
+              the ride, you will see the bus location here.
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.retryButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              onPress={() => fetchLiveBusTracking(true)}
+            >
+              <Icon name='refresh' size={18} color='#fff' />
+              <Text style={styles.retryButtonText}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <MapView
+              ref={mapRef}
+              provider={PROVIDER_GOOGLE}
+              style={styles.map}
+              mapType='standard'
+              initialRegion={{
+                latitude: busLocation.latitude,
+                longitude: busLocation.longitude,
+                latitudeDelta: 0.025,
+                longitudeDelta: 0.025,
+              }}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+              showsCompass={true}
+              showsTraffic={true}
+              showsBuildings={true}
+              showsIndoors={true}
+              showsPointsOfInterest={true}
+              toolbarEnabled={false}
+              loadingEnabled={true}
+            >
+              {getRouteCoordinates().length > 1 && (
+                <Polyline
+                  coordinates={getRouteCoordinates()}
+                  strokeWidth={4}
+                  strokeColor={theme.colors.primary}
+                />
+              )}
+
+              <Marker coordinate={busLocation} title='Your Bus'>
+                <View style={styles.busMarker}>
+                  <Icon name='bus' size={24} color='#fff' />
                 </View>
+              </Marker>
 
-                <View
-                  style={[
-                    styles.liveBadge,
-                    {
-                      backgroundColor: isRideActive ? "#E8F8EF" : "#F2F2F2",
-                    },
-                  ]}
+              {studentStop?.latitude && studentStop?.longitude && (
+                <Marker
+                  coordinate={{
+                    latitude: studentStop.latitude,
+                    longitude: studentStop.longitude,
+                  }}
+                  title={
+                    studentStop.stop_name || studentStop.name || 'Your Stop'
+                  }
+                  description='Your pickup/drop location'
                 >
-                  <View
-                    style={[
-                      styles.liveDot,
-                      {
-                        backgroundColor: isRideActive ? "#1FA463" : "#999",
-                      },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.liveBadgeText,
-                      {
-                        color: isRideActive ? "#1FA463" : "#777",
-                      },
-                    ]}
-                  >
-                    {isRideActive ? "Live" : "Inactive"}
-                  </Text>
-                </View>
-              </View>
+                  <View style={styles.stopMarker}>
+                    <Icon name='location' size={22} color='#fff' />
+                  </View>
+                </Marker>
+              )}
 
-              {/* Bus Number Badge */}
+              {routeStops.map((stop, index) => {
+                const lat = toNumberOrNull(stop.latitude)
+                const lng = toNumberOrNull(stop.longitude)
+
+                if (lat === null || lng === null) return null
+
+                const isStudentStop =
+                  studentStop?.latitude === lat &&
+                  studentStop?.longitude === lng
+
+                if (isStudentStop) return null
+
+                return (
+                  <Marker
+                    key={`route-stop-${index}`}
+                    coordinate={{
+                      latitude: lat,
+                      longitude: lng,
+                    }}
+                    title={stop.stop_name || stop.name || `Stop ${index + 1}`}
+                  >
+                    <View style={styles.smallStopMarker}>
+                      <Text style={styles.smallStopText}>{index + 1}</Text>
+                    </View>
+                  </Marker>
+                )
+              })}
+            </MapView>
+
+            <ScrollView
+              style={styles.bottomSheet}
+              showsVerticalScrollIndicator={false}
+            >
               <View
                 style={[
-                  styles.badge,
-                  { backgroundColor: theme.colors.box },
+                  styles.routeCard,
+                  {
+                    backgroundColor: theme.colors.option,
+                    borderColor: theme.colors.border,
+                  },
                 ]}
               >
-                <Icon name="bus-outline" size={16} color={theme.colors.text} />
-                <Text
-                  style={[
-                    styles.badgeText,
-                    { color: theme.colors.text },
-                  ]}
-                >
-                  Bus No: {busNumber}
-                </Text>
-              </View>
+                <View style={styles.routeTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[styles.routeTitle, { color: theme.colors.text }]}
+                    >
+                      {routeTitle}
+                    </Text>
 
-              <View style={styles.infoGrid}>
-                <View
-                  style={[
-                    styles.infoBox,
-                    { backgroundColor: theme.colors.box },
-                  ]}
-                >
-                  <Icon name="time-outline" size={20} color={theme.colors.primary} />
-                  <Text style={[styles.infoLabel, { color: theme.colors.icon }]}>
-                    Arrives in
-                  </Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                    {getApproxArrivalTime()}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.infoBox,
-                    { backgroundColor: theme.colors.box },
-                  ]}
-                >
-                  <Icon name="navigate-outline" size={20} color={theme.colors.primary} />
-                  <Text style={[styles.infoLabel, { color: theme.colors.icon }]}>
-                    Distance
-                  </Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                    {formatDistance(distanceToStop)}
-                  </Text>
-                </View>
-              </View>
-
-              {distanceToStop !== null &&
-                distanceToStop <= NEAR_STOP_DISTANCE_METERS && (
-                  <View style={styles.nearAlertBox}>
-                    <Icon name="notifications" size={20} color="#B45309" />
-                    <Text style={styles.nearAlertText}>
-                      Your bus is near your stop. Please be ready.
+                    <Text
+                      style={[
+                        styles.routeSubtitle,
+                        { color: theme.colors.icon },
+                      ]}
+                    >
+                      {studentStop?.stop_name || studentStop?.name
+                        ? `Your stop: ${
+                            studentStop.stop_name || studentStop.name
+                          }`
+                        : 'Your stop is not available'}
                     </Text>
                   </View>
-                )}
-            </View>
-          </ScrollView>
-        </>
-      )}
-    </View>
-  );
-};
 
-export default LiveBusTracking;
+                  <View
+                    style={[
+                      styles.liveBadge,
+                      {
+                        backgroundColor: isRideActive ? '#E8F8EF' : '#FFF7E6',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.liveDot,
+                        {
+                          backgroundColor: isRideActive ? '#0A8F3C' : '#D97706',
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.liveBadgeText,
+                        {
+                          color: isRideActive ? '#0A8F3C' : '#D97706',
+                        },
+                      ]}
+                    >
+                      {isRideActive ? 'LIVE' : 'TRACKING'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[styles.badge, { backgroundColor: theme.colors.box }]}
+                >
+                  <Icon
+                    name='bus-outline'
+                    size={16}
+                    color={theme.colors.text}
+                  />
+                  <Text
+                    style={[styles.badgeText, { color: theme.colors.text }]}
+                  >
+                    Bus No: {busNumber}
+                  </Text>
+                </View>
+
+                <View style={styles.infoGrid}>
+                  <View
+                    style={[
+                      styles.infoBox,
+                      { backgroundColor: theme.colors.box },
+                    ]}
+                  >
+                    <Icon
+                      name='time-outline'
+                      size={20}
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={[styles.infoLabel, { color: theme.colors.icon }]}
+                    >
+                      Arrives in
+                    </Text>
+                    <Text
+                      style={[styles.infoValue, { color: theme.colors.text }]}
+                    >
+                      {getApproxArrivalTime()}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.infoBox,
+                      { backgroundColor: theme.colors.box },
+                    ]}
+                  >
+                    <Icon
+                      name='navigate-outline'
+                      size={20}
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={[styles.infoLabel, { color: theme.colors.icon }]}
+                    >
+                      Distance
+                    </Text>
+                    <Text
+                      style={[styles.infoValue, { color: theme.colors.text }]}
+                    >
+                      {formatDistance(distanceToStop)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.updateRow}>
+                  <Icon
+                    name='sync-outline'
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[styles.updateText, { color: theme.colors.icon }]}
+                  >
+                    Auto refresh every 5 seconds • Last update:{' '}
+                    {lastUpdatedText}
+                  </Text>
+                </View>
+
+                {distanceToStop !== null &&
+                  distanceToStop <= NEAR_STOP_DISTANCE_METERS && (
+                    <View style={styles.nearAlertBox}>
+                      <Icon name='notifications' size={20} color='#B45309' />
+                      <Text style={styles.nearAlertText}>
+                        Your bus is near your stop. Please be ready.
+                      </Text>
+                    </View>
+                  )}
+              </View>
+            </ScrollView>
+          </>
+        )}
+      </View>
+    </SafeAreaProvider>
+  )
+}
+
+export default LiveBusTracking
 
 const styles = StyleSheet.create({
   container: {
@@ -590,28 +803,27 @@ const styles = StyleSheet.create({
   },
 
   centerContent: {
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: '600',
   },
 
-  /* HEADER */
   header: {
-    flexDirection: "row",
+    flexDirection: 'row',
     paddingVertical: 16,
     paddingHorizontal: 18,
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 
   headerText: {
     fontSize: 17,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
 
   map: {
@@ -619,45 +831,45 @@ const styles = StyleSheet.create({
   },
 
   bottomSheet: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    maxHeight: 260,
+    maxHeight: 285,
   },
 
-  /* ROUTE CARD */
   routeCard: {
     margin: 14,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 18,
+    borderWidth: 1,
     elevation: 6,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
 
   routeTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: 10,
   },
 
   routeTitle: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 3,
   },
 
   routeSubtitle: {
     fontSize: 12.5,
-    fontWeight: "500",
+    fontWeight: '500',
   },
 
   liveBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 20,
@@ -673,13 +885,13 @@ const styles = StyleSheet.create({
 
   liveBadgeText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: '800',
   },
 
   badge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
@@ -688,37 +900,50 @@ const styles = StyleSheet.create({
 
   badgeText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: '600',
     marginLeft: 6,
   },
 
   infoGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 
   infoBox: {
-    width: "48%",
+    width: '48%',
     borderRadius: 14,
     padding: 12,
   },
 
   infoLabel: {
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: '500',
     marginTop: 6,
   },
 
   infoValue: {
     fontSize: 14,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginTop: 2,
   },
 
+  updateRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  updateText: {
+    marginLeft: 6,
+    flex: 1,
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+
   nearAlertBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FEF3C7",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
     borderRadius: 12,
     padding: 10,
     marginTop: 12,
@@ -726,9 +951,9 @@ const styles = StyleSheet.create({
 
   nearAlertText: {
     flex: 1,
-    color: "#92400E",
+    color: '#92400E',
     fontSize: 12.5,
-    fontWeight: "700",
+    fontWeight: '700',
     marginLeft: 8,
   },
 
@@ -736,45 +961,45 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 24,
-    backgroundColor: "#175812",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#175812',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: '#fff',
   },
 
   stopMarker: {
     width: 40,
     height: 40,
     borderRadius: 22,
-    backgroundColor: "#E11D48",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: '#fff',
   },
 
   smallStopMarker: {
     width: 26,
     height: 26,
     borderRadius: 14,
-    backgroundColor: "#2563EB",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: '#fff',
   },
 
   smallStopText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 11,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
 
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 28,
   },
 
@@ -782,38 +1007,38 @@ const styles = StyleSheet.create({
     width: 82,
     height: 82,
     borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 18,
   },
 
   emptyTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 8,
-    textAlign: "center",
+    textAlign: 'center',
   },
 
   emptyMessage: {
     fontSize: 14,
-    fontWeight: "500",
-    textAlign: "center",
+    fontWeight: '500',
+    textAlign: 'center',
     lineHeight: 21,
   },
 
   retryButton: {
     marginTop: 20,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 14,
   },
 
   retryButtonText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: '700',
     marginLeft: 7,
   },
-});
+})

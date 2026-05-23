@@ -22,6 +22,7 @@ import { ThemeContext } from '../context/ThemeContext'
 import { BASE_URL, endPoints } from '../services/baseUrl'
 import { useFocusEffect } from '@react-navigation/native'
 import axios from 'axios'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 const DriverDashboard = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -31,10 +32,53 @@ const DriverDashboard = ({ navigation }) => {
   const [rideLoading, setRideLoading] = useState(false)
   const [currentRide, setCurrentRide] = useState(null)
   const [notifications, setNotifications] = useState([])
+  const [driverProfile, setDriverProfile] = useState(null)
 
   const unreadNotificationCount = notifications.filter(
     item => Number(item.is_read) === 0,
   ).length
+
+  const getDriverId = user => {
+    return (
+      user?.driver_id ||
+      user?.driverId ||
+      user?.id ||
+      user?.user_id ||
+      user?.userId
+    )
+  }
+
+  const getDriverName = () => {
+    return (
+      driverProfile?.name ||
+      driverProfile?.driver_name ||
+      driverProfile?.full_name ||
+      driverProfile?.email ||
+      'Driver'
+    )
+  }
+
+  const getDriverInitial = () => {
+    const name = getDriverName()
+    return name ? name.charAt(0).toUpperCase() : 'D'
+  }
+
+  const loadDriverProfile = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user')
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null
+
+      if (!parsedUser) {
+        setDriverProfile(null)
+        return
+      }
+
+      setDriverProfile(parsedUser)
+    } catch (error) {
+      console.log('Load driver profile error:', error)
+      setDriverProfile(null)
+    }
+  }
 
   const fetchDriverNotifications = async () => {
     try {
@@ -79,11 +123,13 @@ const DriverDashboard = ({ navigation }) => {
   )
   useEffect(() => {
     loadRecent()
+    loadDriverProfile()
 
     fetchCurrentRideStatus()
     fetchDriverNotifications()
 
     const unsubscribe = navigation.addListener('focus', () => {
+      loadDriverProfile()
       fetchCurrentRideStatus()
       fetchDriverNotifications()
     })
@@ -234,335 +280,394 @@ const DriverDashboard = ({ navigation }) => {
     currentRide?.status === 'active' ||
     currentRide?.status === 'running'
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: '#f5f7fb',
-        },
-      ]}
-    >
-      <StatusBar
-        backgroundColor={theme.colors.primary}
-        barStyle='light-content'
-      />
-
-      {/* HEADER */}
+    <SafeAreaProvider>
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.colors.primary,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.headerLeft}>
-          <Image source={require('../Images/uol.png')} style={styles.logo} />
+        <StatusBar
+          backgroundColor={theme.colors.primary}
+          barStyle='light-content'
+        />
 
-          <View>
-            <Text style={styles.headerTitle}>Driver Dashboard</Text>
-
-            <Text style={styles.headerSub}>UOL Transportation</Text>
-          </View>
-        </View>
-
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('DriverNotification')}
-          >
-            <Icon name='notifications-outline' size={24} color='white' />
-
-            {unreadNotificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNotificationCount > 99
-                    ? '99+'
-                    : unreadNotificationCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.profileBtn} onPress={menuAnimation}>
-            <Text style={styles.profileText}>D</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* DROPDOWN */}
-      {menuVisible && (
-        <Animated.View
+        {/* HEADER */}
+        <View
           style={[
-            styles.dropdown,
+            styles.header,
             {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  scale: fadeAnim,
-                },
-              ],
+              backgroundColor: theme.colors.primary,
             },
           ]}
         >
-          <View style={styles.profileTop}>
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileCircleText}>D</Text>
-            </View>
+          <View style={styles.headerLeft}>
+            <Image source={require('../Images/uol.png')} style={styles.logo} />
 
-            <Text style={styles.driverName}>Driver</Text>
-
-            <Text style={styles.driverRole}>Transport Staff</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigateAndTrack('DriverPersonalInfo')}
-          >
-            <Icon name='person-outline' size={20} color='#175812' />
-
-            <Text style={styles.menuText}>Profile</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigateAndTrack('AppSettings')}
-          >
-            <Icon name='settings-outline' size={20} color='#175812' />
-
-            <Text style={styles.menuText}>Settings</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigateAndTrack('Help')}
-          >
-            <Icon name='help-circle-outline' size={20} color='#175812' />
-
-            <Text style={styles.menuText}>Help Center</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={() => {
-              Alert.alert('Logout', 'Are you sure?', [
-                {
-                  text: 'Cancel',
-                  style: 'cancel',
-                },
-
-                {
-                  text: 'Logout',
-
-                  onPress: () => navigation.replace('Login'),
-                },
-              ])
-            }}
-          >
-            <Icon name='log-out-outline' size={20} color='white' />
-
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: 40,
-        }}
-      >
-        {/* WELCOME CARD */}
-        <View style={styles.welcomeCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.welcomeTitle}>Welcome Driver 👋</Text>
-
-            <Text style={styles.welcomeSubtitle}>
-              Manage rides, students, attendance and live tracking efficiently.
-            </Text>
-
-            <View
-              style={[
-                styles.activeRideChip,
-                {
-                  backgroundColor: isRideActive
-                    ? 'rgba(76,175,80,0.22)'
-                    : 'rgba(255,255,255,0.15)',
-                },
-              ]}
-            >
-              <Icon
-                name={isRideActive ? 'radio-button-on' : 'radio-button-off'}
-                size={12}
-                color={isRideActive ? '#4CAF50' : '#ddd'}
-              />
-
-              <Text style={styles.activeRideText}>
-                {rideLoading
-                  ? 'Checking Ride...'
-                  : isRideActive
-                  ? 'Ride Active'
-                  : 'No Active Ride'}
-              </Text>
-            </View>
-          </View>
-
-          <Image
-            source={{
-              uri: 'https://cdn-icons-png.flaticon.com/512/1995/1995574.png',
-            }}
-            style={styles.driverImage}
-          />
-        </View>
-
-        {/* LIVE STATUS */}
-        <View style={styles.liveCard}>
-          <View style={styles.liveTop}>
             <View>
-              <Text style={styles.liveTitle}>Current Ride Status</Text>
+              <Text style={styles.headerTitle}>Driver Dashboard</Text>
 
-              <Text style={styles.liveSub}>
-                {rideLoading
-                  ? 'Checking bus status...'
-                  : isRideActive
-                  ? `Bus #${currentRide?.bus_number || 'N/A'}`
-                  : 'No bus is live right now'}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.liveBadge,
-                {
-                  backgroundColor: isRideActive ? '#4CAF50' : '#9E9E9E',
-                },
-              ]}
-            >
-              <Text style={styles.liveBadgeText}>
-                {rideLoading ? '...' : isRideActive ? 'LIVE' : 'OFFLINE'}
-              </Text>
+              <Text style={styles.headerSub}>UOL Transportation</Text>
             </View>
           </View>
 
-          {rideLoading ? (
-            <View style={styles.emptyRideBox}>
-              <Text style={styles.emptyRideText}>
-                Fetching current ride status...
-              </Text>
-            </View>
-          ) : isRideActive ? (
-            <View style={styles.liveRow}>
-              <View style={styles.liveItem}>
-                <Icon name='location' size={22} color='#2196F3' />
-
-                <Text style={styles.liveItemTitle}>Current Stop</Text>
-
-                <Text style={styles.liveItemValue}>
-                  {currentRide?.current_stop ||
-                    currentRide?.stop_name ||
-                    currentRide?.last_location_name ||
-                    'Updating...'}
-                </Text>
-              </View>
-
-              <View style={styles.liveItem}>
-                <Icon name='time' size={22} color='#FF9800' />
-
-                <Text style={styles.liveItemTitle}>ETA</Text>
-
-                <Text style={styles.liveItemValue}>
-                  {currentRide?.eta
-                    ? `${currentRide.eta} mins`
-                    : 'Calculating...'}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.emptyRideBox}>
-              <Icon name='bus-outline' size={34} color='#9E9E9E' />
-
-              <Text style={styles.emptyRideTitle}>No Active Ride</Text>
-
-              <Text style={styles.emptyRideText}>
-                Start a ride from Trip Control to make the bus live for
-                students.
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* QUICK ACTIONS */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-        </View>
-
-        <View style={styles.grid}>
-          {actionCards.map(item => (
+          <View style={styles.headerRight}>
             <TouchableOpacity
-              key={item.title}
-              style={styles.actionCard}
-              onPress={() => navigateAndTrack(item.screen)}
+              style={styles.iconBtn}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('DriverNotification')}
             >
-              <View
-                style={[
-                  styles.iconBox,
-                  {
-                    backgroundColor: item.color,
-                  },
-                ]}
-              >
-                <Icon name={item.icon} size={28} color='white' />
-              </View>
+              <Icon name='notifications-outline' size={24} color='white' />
 
-              {item.title === 'Notifications' && unreadNotificationCount > 0 && (
-                <View style={styles.actionBadge}>
-                  <Text style={styles.actionBadgeText}>
+              {unreadNotificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
                     {unreadNotificationCount > 99
                       ? '99+'
                       : unreadNotificationCount}
                   </Text>
                 </View>
               )}
-
-              <Text style={styles.actionTitle}>{item.title}</Text>
             </TouchableOpacity>
-          ))}
+
+            <TouchableOpacity style={styles.profileBtn} onPress={menuAnimation}>
+              <Text style={styles.profileText}>{getDriverInitial()}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* RECENT */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Activities</Text>
-        </View>
+        {/* DROPDOWN */}
+        {menuVisible && (
+          <Animated.View
+            style={[
+              styles.dropdown,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    scale: fadeAnim,
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.profileTop}>
+              <View style={styles.profileCircle}>
+                <Text style={styles.profileCircleText}>
+                  {getDriverInitial()}
+                </Text>
+              </View>
 
-        <View style={styles.recentCard}>
-          {recentScreens.length === 0 ? (
-            <Text style={styles.noRecentText}>No recent activities</Text>
-          ) : (
-            recentScreens.map((item, index) => (
-              <View key={index} style={styles.recentItem}>
-                <Icon name='time-outline' size={18} color='#175812' />
+              <Text style={styles.driverName}>{getDriverName()}</Text>
 
-                <View>
-                  <Text style={styles.recentText}>{item.name}</Text>
+              <Text style={styles.driverRole}>Transport Staff</Text>
+            </View>
 
-                  <Text
-                    style={{
-                      color: '#777',
-                      fontSize: 11,
-                      marginLeft: 10,
-                      marginTop: 2,
-                    }}
-                  >
-                    {item.time}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateAndTrack('DriverPersonalInfo')}
+            >
+              <Icon name='person-outline' size={20} color='#175812' />
+
+              <Text style={styles.menuText}>Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateAndTrack('AppSettings')}
+            >
+              <Icon name='settings-outline' size={20} color='#175812' />
+
+              <Text style={styles.menuText}>Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateAndTrack('Help')}
+            >
+              <Icon name='help-circle-outline' size={20} color='#175812' />
+
+              <Text style={styles.menuText}>Help Center</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={() => {
+                Alert.alert('Logout', 'Are you sure?', [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+
+                  {
+                    text: 'Logout',
+
+                    onPress: () => navigation.replace('Login'),
+                  },
+                ])
+              }}
+            >
+              <Icon name='log-out-outline' size={20} color='white' />
+
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingBottom: 40,
+          }}
+        >
+          {/* WELCOME CARD */}
+          <View
+            style={[
+              styles.welcomeCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.welcomeTitle}>
+                Welcome {getDriverName()} 👋
+              </Text>
+
+              <Text
+                style={[styles.welcomeSubtitle, { color: theme.colors.text }]}
+              >
+                Manage rides, students, attendance and live tracking
+                efficiently.
+              </Text>
+
+              <View
+                style={[
+                  styles.activeRideChip,
+                  {
+                    backgroundColor: isRideActive
+                      ? 'rgba(76,175,80,0.22)'
+                      : 'rgba(255,255,255,0.15)',
+                  },
+                ]}
+              >
+                <Icon
+                  name={isRideActive ? 'radio-button-on' : 'radio-button-off'}
+                  size={12}
+                  color={isRideActive ? '#4CAF50' : '#ddd'}
+                />
+
+                <Text style={styles.activeRideText}>
+                  {rideLoading
+                    ? 'Checking Ride...'
+                    : isRideActive
+                    ? 'Ride Active'
+                    : 'No Active Ride'}
+                </Text>
+              </View>
+            </View>
+
+            <Image
+              source={{
+                uri: 'https://cdn-icons-png.flaticon.com/512/1995/1995574.png',
+              }}
+              style={[styles.driverImage]}
+            />
+          </View>
+
+          {/* LIVE STATUS */}
+          <View
+            style={[
+              styles.liveCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            <View style={styles.liveTop}>
+              <View>
+                <Text style={[styles.liveTitle, { color: theme.colors.text }]}>
+                  Current Ride Status
+                </Text>
+
+                <Text style={styles.liveSub}>
+                  {rideLoading
+                    ? 'Checking bus status...'
+                    : isRideActive
+                    ? `Bus #${currentRide?.bus_number || 'N/A'}`
+                    : 'No bus is live right now'}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.liveBadge,
+                  {
+                    backgroundColor: isRideActive ? '#4CAF50' : '#9E9E9E',
+                  },
+                ]}
+              >
+                <Text style={styles.liveBadgeText}>
+                  {rideLoading ? '...' : isRideActive ? 'LIVE' : 'OFFLINE'}
+                </Text>
+              </View>
+            </View>
+
+            {rideLoading ? (
+              <View
+                style={[
+                  styles.emptyRideBox,
+                  { backgroundColor: theme.colors.dashboard },
+                ]}
+              >
+                <Text
+                  style={[styles.emptyRideText, { color: theme.colors.text }]}
+                >
+                  Fetching current ride status...
+                </Text>
+              </View>
+            ) : isRideActive ? (
+              <View style={styles.liveRow}>
+                <View style={styles.liveItem}>
+                  <Icon name='location' size={22} color='#2196F3' />
+
+                  <Text style={styles.liveItemTitle}>Current Stop</Text>
+
+                  <Text style={styles.liveItemValue}>
+                    {currentRide?.current_stop ||
+                      currentRide?.stop_name ||
+                      currentRide?.last_location_name ||
+                      'Updating...'}
+                  </Text>
+                </View>
+
+                <View style={styles.liveItem}>
+                  <Icon name='time' size={22} color='#FF9800' />
+
+                  <Text style={styles.liveItemTitle}>ETA</Text>
+
+                  <Text style={styles.liveItemValue}>
+                    {currentRide?.eta
+                      ? `${currentRide.eta} mins`
+                      : 'Calculating...'}
                   </Text>
                 </View>
               </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
-    </View>
+            ) : (
+              <View
+                style={[
+                  styles.emptyRideBox,
+                  { backgroundColor: theme.colors.background },
+                ]}
+              >
+                <Icon name='bus-outline' size={34} color='#9E9E9E' />
+
+                <Text
+                  style={[styles.emptyRideTitle, { color: theme.colors.text }]}
+                >
+                  No Active Ride
+                </Text>
+
+                <Text style={styles.emptyRideText}>
+                  Start a ride from Trip Control to make the bus live for
+                  students.
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* QUICK ACTIONS */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Quick Actions
+            </Text>
+          </View>
+
+          <View style={styles.grid}>
+            {actionCards.map(item => (
+              <TouchableOpacity
+                key={item.title}
+                style={[
+                  styles.actionCard,
+                  { backgroundColor: theme.colors.dashboard },
+                ]}
+                onPress={() => navigateAndTrack(item.screen)}
+              >
+                <View
+                  style={[
+                    styles.iconBox,
+                    {
+                      backgroundColor: item.color,
+                    },
+                  ]}
+                >
+                  <Icon name={item.icon} size={28} color='white' />
+                </View>
+
+                {item.title === 'Notifications' && unreadNotificationCount > 0 && (
+                  <View style={styles.actionBadge}>
+                    <Text style={styles.actionBadgeText}>
+                      {unreadNotificationCount > 99
+                        ? '99+'
+                        : unreadNotificationCount}
+                    </Text>
+                  </View>
+                )}
+
+                <Text
+                  style={[styles.actionTitle, { color: theme.colors.text }]}
+                >
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* RECENT */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Recent Activities
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.recentCard,
+              { backgroundColor: theme.colors.dashboard },
+            ]}
+          >
+            {recentScreens.length === 0 ? (
+              <Text style={styles.noRecentText}>No recent activities</Text>
+            ) : (
+              recentScreens.map((item, index) => (
+                <View key={index} style={styles.recentItem}>
+                  <Icon
+                    name='time-outline'
+                    size={18}
+                    color={theme.colors.icon}
+                  />
+
+                  <View>
+                    <Text
+                      style={[styles.recentText, { color: theme.colors.text }]}
+                    >
+                      {item.name}
+                    </Text>
+
+                    <Text
+                      style={[
+                        {
+                          color: '#777',
+                          fontSize: 11,
+                          marginLeft: 10,
+                          marginTop: 2,
+                        },
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      {item.time}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaProvider>
   )
 }
 
@@ -912,34 +1017,34 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   headerRight: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 10,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
 
-iconBtn: {
-  marginRight: 6,
-  position: 'relative',
-},
+  iconBtn: {
+    marginRight: 6,
+    position: 'relative',
+  },
 
-notificationBadge: {
-  position: 'absolute',
-  top: -8,
-  right: -8,
-  minWidth: 18,
-  height: 18,
-  borderRadius: 9,
-  backgroundColor: '#e53935',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingHorizontal: 5,
-  borderWidth: 1.5,
-  borderColor: '#fff',
-},
+  notificationBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#e53935',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
 
-notificationBadgeText: {
-  color: '#fff',
-  fontSize: 10,
-  fontWeight: '900',
-},
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+  },
 })

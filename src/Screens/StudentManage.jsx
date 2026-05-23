@@ -27,16 +27,6 @@ const ManageBuses = ({ navigation }) => {
       icon: 'alert-circle-outline',
       screen: 'StudentComplaints',
     },
-    {
-      title: 'Attendance',
-      icon: 'checkmark-done-outline',
-      screen: 'StudentAttendance',
-    },
-    {
-      title: 'Travel History',
-      icon: 'time-outline',
-      screen: 'StudentHistory',
-    },
   ];
 
   return (
