@@ -14,7 +14,7 @@ import { ThemeContext } from '../context/ThemeContext'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { useEffect } from 'react'
 import { PermissionsAndroid, Platform } from 'react-native'
-import Geolocation from '@react-native-community/geolocation'
+import Geolocation from 'react-native-geolocation-service';
 
 const GOOGLE_API_KEY = 'AIzaSyBG_tfwPfE3Bnn2-8CwNTOZuPd1c0Yr0Wc'
 Geolocation.setRNConfiguration({

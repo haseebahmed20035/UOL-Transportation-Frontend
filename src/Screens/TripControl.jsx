@@ -14,7 +14,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Icon from 'react-native-vector-icons/Ionicons'
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
-import Geolocation from '@react-native-community/geolocation'
+import Geolocation from 'react-native-geolocation-service';
 import { ThemeContext } from '../context/ThemeContext'
 import { BASE_URL } from '../services/baseUrl'
 import {

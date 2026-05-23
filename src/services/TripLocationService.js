@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import BackgroundService from 'react-native-background-actions'
-import Geolocation from '@react-native-community/geolocation'
+import Geolocation from 'react-native-geolocation-service';
 import { BASE_URL } from '../services/baseUrl'
 
 const sleep = time => new Promise(resolve => setTimeout(resolve, time))
