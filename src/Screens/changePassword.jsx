@@ -6,28 +6,55 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { ThemeContext } from '../context/ThemeContext'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const ChangePassword = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
-
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [updatingPassword, setUpdatingPassword] = useState(false)
   const [otp, setOtp] = useState('')
   const [newPass, setNewPass] = useState('')
   const [showPass, setShowPass] = useState(false)
 
   const sendOtp = async () => {
-    const user = JSON.parse(await AsyncStorage.getItem('user'))
+    if (sendingOtp) return
 
-    await fetch('http://192.168.100.100:5000/send-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: user.email }),
-    })
+    try {
+      setSendingOtp(true)
 
-    Alert.alert('OTP sent to email')
+      const storedUser = await AsyncStorage.getItem('user')
+      const user = storedUser ? JSON.parse(storedUser) : null
+
+      if (!user?.email) {
+        Alert.alert('Error', 'User email not found. Please login again.')
+        return
+      }
+
+      const res = await fetch(`${BASE_URL}/${endPoints.sendOtp}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        Alert.alert('Error', data?.message || 'Failed to send OTP')
+        return
+      }
+
+      Alert.alert('Success', data?.message || 'OTP sent to email')
+    } catch (error) {
+      console.log('Send OTP Error:', error)
+      Alert.alert('Error', 'Something went wrong while sending OTP')
+    } finally {
+      setSendingOtp(false)
+    }
   }
 
   const changePassword = async () => {
@@ -48,7 +75,7 @@ const ChangePassword = ({ navigation }) => {
 
     const user = JSON.parse(await AsyncStorage.getItem('user'))
 
-    const res = await fetch('http://192.168.100.100:5000/change-password', {
+    const res = await fetch(`${BASE_URL}/${endPoints.changePassword}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -57,24 +84,25 @@ const ChangePassword = ({ navigation }) => {
         newPassword: newPass,
       }),
     })
-    setOtp('');
+    setOtp('')
     setNewPass('')
-    setShowPass('')
+    setShowPass(false)
     const data = await res.json()
 
     Alert.alert(data.message)
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={theme.colors.background} />
+          <Icon name='arrow-back' size={24} color={theme.colors.icon} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.background }]}>
+        <Text style={[styles.headerText, { color: theme.colors.text }]}>
           Change Password
         </Text>
 
@@ -84,30 +112,33 @@ const ChangePassword = ({ navigation }) => {
       {/* CARD */}
       <View style={styles.wrapper}>
         <View style={[styles.card, { backgroundColor: theme.colors.option }]}>
-          
           <Text style={[styles.title, { color: theme.colors.text }]}>
             Secure Your Account 🔐
           </Text>
 
           {/* OTP */}
           <View style={[styles.inputBox, { borderColor: theme.colors.border }]}>
-            <Icon name="key-outline" size={18} color={theme.colors.icon} />
+            <Icon name='key-outline' size={18} color={theme.colors.icon} />
             <TextInput
-              placeholder="Enter OTP"
-              placeholderTextColor="#999"
+              placeholder='Enter OTP'
+              placeholderTextColor='#999'
               value={otp}
               onChangeText={setOtp}
               style={[styles.input, { color: theme.colors.text }]}
-              keyboardType="numeric"
+              keyboardType='numeric'
             />
           </View>
 
           {/* PASSWORD */}
           <View style={[styles.inputBox, { borderColor: theme.colors.border }]}>
-            <Icon name="lock-closed-outline" size={18} color={theme.colors.icon} />
+            <Icon
+              name='lock-closed-outline'
+              size={18}
+              color={theme.colors.icon}
+            />
             <TextInput
-              placeholder="New Password"
-              placeholderTextColor="#999"
+              placeholder='New Password'
+              placeholderTextColor='#999'
               secureTextEntry={!showPass}
               value={newPass}
               onChangeText={setNewPass}
@@ -125,10 +156,25 @@ const ChangePassword = ({ navigation }) => {
 
           {/* SEND OTP */}
           <TouchableOpacity
-            style={[styles.otpBtn, { backgroundColor: '#4285F4' }]}
+            activeOpacity={0.85}
+            disabled={sendingOtp}
+            style={[
+              styles.otpBtn,
+              {
+                backgroundColor: sendingOtp ? '#9BBDF9' : '#4285F4',
+                opacity: sendingOtp ? 0.8 : 1,
+              },
+            ]}
             onPress={sendOtp}
           >
-            <Text style={styles.otpText}>Send OTP</Text>
+            {sendingOtp ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size='small' color='#fff' />
+                <Text style={styles.otpText}>Sending OTP...</Text>
+              </View>
+            ) : (
+              <Text style={styles.otpText}>Send OTP</Text>
+            )}
           </TouchableOpacity>
 
           {/* UPDATE */}
@@ -138,7 +184,6 @@ const ChangePassword = ({ navigation }) => {
           >
             <Text style={styles.buttonText}>Update Password</Text>
           </TouchableOpacity>
-
         </View>
       </View>
     </View>
@@ -219,4 +264,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  loadingRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+},
 })

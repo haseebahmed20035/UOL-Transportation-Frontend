@@ -25,7 +25,7 @@ import axios from 'axios'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 const DriverDashboard = ({ navigation }) => {
-  const { theme } = useContext(ThemeContext)
+  const { theme, reloadTheme } = useContext(ThemeContext)
   const [menuVisible, setMenuVisible] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const [recentScreens, setRecentScreens] = useState([])
@@ -124,7 +124,7 @@ const DriverDashboard = ({ navigation }) => {
   useEffect(() => {
     loadRecent()
     loadDriverProfile()
-
+    loadRecent()
     fetchCurrentRideStatus()
     fetchDriverNotifications()
 
@@ -213,7 +213,7 @@ const DriverDashboard = ({ navigation }) => {
   }
 
   const loadRecent = async () => {
-    const stored = await AsyncStorage.getItem('recentScreens')
+    const stored = await AsyncStorage.getItem('driver_recentScreens')
 
     if (stored) {
       setRecentScreens(JSON.parse(stored))
@@ -233,7 +233,7 @@ const DriverDashboard = ({ navigation }) => {
 
     setRecentScreens(updated)
 
-    await AsyncStorage.setItem('recentScreens', JSON.stringify(updated))
+    await AsyncStorage.setItem('driver_recentScreens', JSON.stringify(updated))
 
     navigation.navigate(screen)
   }

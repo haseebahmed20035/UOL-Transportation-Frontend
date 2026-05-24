@@ -94,15 +94,8 @@ const LiveBusTracking = ({ navigation }) => {
   }
 
   const getStudentIdFromUser = user => {
-    return (
-      user?.student_id ||
-      user?.studentId ||
-      user?.student?.id ||
-      user?.id ||
-      user?.user_id ||
-      user?.userId
-    )
-  }
+  return user?.student_id || user?.studentId || user?.student?.id || null
+}
 
   const toNumberOrNull = value => {
     const numberValue = Number(value)
@@ -193,7 +186,25 @@ const LiveBusTracking = ({ navigation }) => {
       }
 
       const user = JSON.parse(storedUser)
-      const studentId = getStudentIdFromUser(user)
+
+      let studentId = getStudentIdFromUser(user)
+
+      if (!studentId) {
+        const userId = user?.user_id || user?.userId || user?.id
+
+        if (!userId) {
+          if (showLoader) {
+            Alert.alert('Error', 'User ID not found. Please login again.')
+          }
+          resetTrackingData()
+          return
+        }
+
+        const studentProfileResponse = await axios.get(
+          `${BASE_URL}/student/${userId}`,
+        )
+        studentId = studentProfileResponse?.data?.student_id
+      }
 
       if (!studentId) {
         if (showLoader) {

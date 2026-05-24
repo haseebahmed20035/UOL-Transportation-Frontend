@@ -490,8 +490,6 @@ const TripControl = ({ navigation }) => {
 
         await startTripLocationService(assignedTrip)
 
-        await startTripLocationService(assignedTrip)
-
         const activeTripString = await AsyncStorage.getItem('activeTrip')
         const activeTrip = activeTripString
           ? JSON.parse(activeTripString)

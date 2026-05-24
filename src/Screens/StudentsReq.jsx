@@ -11,6 +11,7 @@ import {
 import React, { useContext, useEffect, useState } from 'react'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { ThemeContext } from '../context/ThemeContext'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const StudentsReq = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -24,7 +25,7 @@ const StudentsReq = ({ navigation }) => {
   const approveRequest = async item => {
   try {
     const response = await fetch(
-      `http://192.168.100.100:5000/approve-request/${item.id}`,
+      `${BASE_URL}/approve-request/${item.id}`,
       {
         method: 'PUT',
         headers: {
@@ -50,7 +51,7 @@ const StudentsReq = ({ navigation }) => {
 const rejectRequest = async item => {
   try {
     const response = await fetch(
-      `http://192.168.100.100:5000/reject-request/${item.id}`,
+      `${BASE_URL}/reject-request/${item.id}`,
       {
         method: 'PUT',
       },
@@ -70,7 +71,7 @@ const rejectRequest = async item => {
   const fetchStudentRequests = async () => {
     try {
       const response = await fetch(
-        'http://192.168.100.100:5000/student-requests',
+        `${BASE_URL}/student-requests`,
       )
 
       const json = await response.json()

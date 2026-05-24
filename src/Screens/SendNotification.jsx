@@ -114,10 +114,10 @@ const SendNotification = ({ navigation }) => {
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={26} color={theme.colors.background} />
+          <Icon name='arrow-back' size={26} color={theme.colors.icon} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.background }]}>
+        <Text style={[styles.headerText, { color: theme.colors.text }]}>
           Notification
         </Text>
 
@@ -132,7 +132,7 @@ const SendNotification = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <Text style={styles.sectionTitle}>Select Audience</Text>
+          <Text style={[styles.sectionTitle, {color:theme.colors.text}]}>Select Audience</Text>
 
           <View style={styles.optionWrapper}>
             {targetOptions.map(item => {
@@ -160,7 +160,7 @@ const SendNotification = ({ navigation }) => {
                     <Icon
                       name={item.icon}
                       size={22}
-                      color={isSelected ? '#fff' : theme.colors.primary}
+                      color={isSelected ? '#fff' : theme.colors.icon}
                     />
                   </View>
 
@@ -185,7 +185,7 @@ const SendNotification = ({ navigation }) => {
             })}
           </View>
 
-          <Text style={styles.sectionTitle}>Notification Details</Text>
+          <Text style={[styles.sectionTitle, {color:theme.colors.text}]}>Notification Details</Text>
 
           <View style={styles.inputCard}>
             <Text style={styles.inputLabel}>Title</Text>

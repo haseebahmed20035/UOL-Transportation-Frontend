@@ -199,7 +199,7 @@ const StudentDashboard = ({ navigation }) => {
   }, [])
 
   const loadRecent = async () => {
-    const stored = await AsyncStorage.getItem('recentScreens')
+    const stored = await AsyncStorage.getItem('student_recentScreens')
 
     if (stored) {
       setRecentScreens(JSON.parse(stored))
@@ -240,7 +240,7 @@ const StudentDashboard = ({ navigation }) => {
 
     setRecentScreens(updated)
 
-    await AsyncStorage.setItem('recentScreens', JSON.stringify(updated))
+    await AsyncStorage.setItem('student_recentScreens', JSON.stringify(updated))
 
     navigation.navigate(screenName)
   }
@@ -545,13 +545,13 @@ const StudentDashboard = ({ navigation }) => {
                   Live Bus Status
                 </Text>
 
-                <Text style={styles.liveSub}>
+                <Text style={[styles.liveSub, {color:theme.colors.text}]}>
                   {liveBusLoading
                     ? 'Loading bus details...'
                     : `Bus #${liveBusData?.busNumber || 'Not Assigned'}`}
                 </Text>
 
-                <Text style={styles.liveRouteText}>
+                <Text style={[styles.liveRouteText, {color:theme.colors.text}]}>
                   {liveBusData?.routeName || 'No active route found'}
                 </Text>
               </TouchableOpacity>
@@ -573,22 +573,22 @@ const StudentDashboard = ({ navigation }) => {
             </View>
 
             <View style={styles.liveRow}>
-              <View style={styles.liveItem}>
+              <View style={[styles.liveItem, {backgroundColor:theme.colors.background}]}>
                 <Icon name='location' size={22} color='#2196F3' />
 
-                <Text style={[styles.liveItemTitle]}>Current Stop</Text>
+                <Text style={[styles.liveItemTitle, {color:theme.colors.text}]}>Current Stop</Text>
 
-                <Text style={styles.liveItemValue}>
+                <Text style={[styles.liveItemValue, {color:theme.colors.text}]}>
                   {liveBusData?.currentStop || 'Not Available'}
                 </Text>
               </View>
 
-              <View style={styles.liveItem}>
+              <View style={[styles.liveItem, {backgroundColor:theme.colors.background}]}>
                 <Icon name='time' size={22} color='#FF9800' />
 
-                <Text style={styles.liveItemTitle}>ETA</Text>
+                <Text style={[styles.liveItemTitle, {color:theme.colors.text}]}>ETA</Text>
 
-                <Text style={styles.liveItemValue}>
+                <Text style={[styles.liveItemValue, {color:theme.colors.text}]}>
                   {liveBusData?.eta || 'N/A'}
                 </Text>
               </View>
@@ -661,7 +661,7 @@ const StudentDashboard = ({ navigation }) => {
                 placeholder='Search feature...'
                 value={searchText}
                 onChangeText={setSearchText}
-                style={styles.searchInput}
+                style={[styles.searchInput]}
               />
             </View>
 
@@ -676,9 +676,9 @@ const StudentDashboard = ({ navigation }) => {
                   onPress={() => navigateAndTrack(item.screen)}
                 >
                   <Text
-                    style={{
+                    style={[{
                       color: '#111',
-                    }}
+                    }, {color:theme.colors.text}]}
                   >
                     🔍 {item.title}
                   </Text>

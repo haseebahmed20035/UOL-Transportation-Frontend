@@ -23,4 +23,6 @@ export const endPoints = {
   updateRoute:`update-route`,
   adminDashboardStats: `admin-dashboard-stats`,
   addRoute: `add-route`,
+  sendOtp:`send-otp`,
+  changePassword:`change-password`
 }

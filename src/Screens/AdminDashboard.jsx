@@ -20,7 +20,7 @@ import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const AdminDashboard = ({ navigation }) => {
   const [stats, setStats] = useState(null)
-  const { theme } = useContext(ThemeContext)
+  const { theme, reloadTheme } = useContext(ThemeContext)
 
   const [menuVisible, setMenuVisible] = useState(false)
 
@@ -32,12 +32,8 @@ const AdminDashboard = ({ navigation }) => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current
 
-  useEffect(() => {
-    loadRecent()
-  }, [])
-
   const loadRecent = async () => {
-    const stored = await AsyncStorage.getItem('recentScreens')
+    const stored = await AsyncStorage.getItem('admin_recentScreens')
 
     if (stored) {
       setRecentScreens(JSON.parse(stored))
@@ -66,7 +62,7 @@ const AdminDashboard = ({ navigation }) => {
 
     setRecentScreens(updated)
 
-    await AsyncStorage.setItem('recentScreens', JSON.stringify(updated))
+    await AsyncStorage.setItem('admin_recentScreens', JSON.stringify(updated))
 
     navigation.navigate(screenName)
   }
@@ -184,11 +180,11 @@ const AdminDashboard = ({ navigation }) => {
       console.log(err)
     }
   }
-  useEffect(() => {
-    loadRecent()
-
-    fetchDashboardStats()
-  }, [])
+ useEffect(() => {
+  reloadTheme()
+  loadRecent()
+  fetchDashboardStats()
+}, [])
   return (
     <SafeAreaProvider>
       <View
