@@ -24,7 +24,7 @@ const AppSettings = ({ navigation }) => {
 
   const [role, setRole] = useState('student')
   const [userData, setUserData] = useState(null)
-  const [notifications, setNotifications] = useState(false)
+  const [notifications, setNotifications] = useState(true)
   const [notificationLoading, setNotificationLoading] = useState(false)
 
   useEffect(() => {
@@ -278,10 +278,10 @@ const AppSettings = ({ navigation }) => {
     >
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={24} color={theme.colors.background} />
+          <Icon name='arrow-back' size={24} color={theme.colors.icon} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.background }]}>
+        <Text style={[styles.headerText, { color: theme.colors.headerText }]}>
           {role.charAt(0).toUpperCase() + role.slice(1)} Settings
         </Text>
 

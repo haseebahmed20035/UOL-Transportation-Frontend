@@ -49,7 +49,7 @@ const MyPersonalInfo = ({ navigation }) => {
           <Icon name='arrow-back' size={26} color={theme.colors.icon} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.text }]}>
+        <Text style={[styles.headerText, { color: theme.colors.headerText }]}>
           My Personal Information
         </Text>
 

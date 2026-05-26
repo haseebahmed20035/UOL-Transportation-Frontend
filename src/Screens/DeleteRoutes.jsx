@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { ThemeContext } from '../context/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const DeleteRoutes = ({ navigation }) => {
   const { theme } = useContext(ThemeContext);
@@ -20,7 +21,7 @@ const DeleteRoutes = ({ navigation }) => {
   // 🔥 Fetch routes
   const fetchRoutes = async () => {
     try {
-      const res = await fetch('http://192.168.100.100:5000/routes');
+      const res = await fetch(`${BASE_URL}/routes`);
       const data = await res.json();
       setRoutes(data);
     } catch (err) {
@@ -47,7 +48,7 @@ const DeleteRoutes = ({ navigation }) => {
           onPress: async () => {
             try {
               const res = await fetch(
-                `http://192.168.100.100:5000/delete-route/${id}`,
+                `${BASE_URL}/delete-route/${id}`,
                 { method: 'DELETE' }
               );
 

@@ -8,6 +8,7 @@ import {
 import React, { useContext, useEffect, useState } from 'react'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { ThemeContext } from '../context/ThemeContext'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const AllStudents = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -20,7 +21,7 @@ const AllStudents = ({ navigation }) => {
   const fetchStudents = async () => {
     try {
       const res = await fetch(
-        'http://192.168.100.100:5000/all-students',
+        `${BASE_URL}/all-students`,
       )
       const data = await res.json()
 

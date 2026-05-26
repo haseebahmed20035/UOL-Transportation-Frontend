@@ -114,10 +114,10 @@ const SendNotification = ({ navigation }) => {
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={26} color={theme.colors.icon} />
+          <Icon name='arrow-back' size={26} color={theme.colors.headerText} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.text }]}>
+        <Text style={[styles.headerText, { color: theme.colors.headerText }]}>
           Notification
         </Text>
 

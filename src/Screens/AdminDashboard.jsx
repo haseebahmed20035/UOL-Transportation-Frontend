@@ -186,7 +186,7 @@ const AdminDashboard = ({ navigation }) => {
   fetchDashboardStats()
 }, [])
   return (
-    <SafeAreaProvider>
+    <>
       <View
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
@@ -561,7 +561,7 @@ const AdminDashboard = ({ navigation }) => {
           </View>
         </ScrollView>
       </View>
-    </SafeAreaProvider>
+  </>
   )
 }
 

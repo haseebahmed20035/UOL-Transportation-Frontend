@@ -76,6 +76,7 @@ export const ThemeProvider = ({ children }) => {
       text: darkMode ? '#FFFFFF' : '#0F2F1B',
       icon: darkMode ? '#FFFFFF' : '#175812',
       dashboard: darkMode ? '#2D4733' : '#FFFFFF',
+      headerText: darkMode ? '#FFFFFF' : '#ffffff',
     },
   }
 

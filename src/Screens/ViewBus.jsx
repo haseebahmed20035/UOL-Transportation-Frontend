@@ -9,6 +9,7 @@ import {
 import React, { useEffect, useState, useContext } from 'react';
 import { ThemeContext } from '../context/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const ViewBus = ({ route, navigation }) => {
   const busId = route?.params?.busId;
@@ -24,7 +25,7 @@ const ViewBus = ({ route, navigation }) => {
   const fetchBusDetails = async () => {
     try {
       const res = await fetch(
-        `http://192.168.100.100:5000/bus-details/${busId}`,
+        `${BASE_URL}/bus-details/${busId}`,
       );
       const json = await res.json();
       setData(json);

@@ -4,7 +4,6 @@ import React,
   useEffect,
   useState,
 } from 'react'
-
 import {
   ActivityIndicator,
   Alert,
@@ -16,17 +15,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-
-import Icon
-from 'react-native-vector-icons/Ionicons'
-
+import Icon from 'react-native-vector-icons/Ionicons'
 import {
   ThemeContext,
 } from '../context/ThemeContext'
-
-import {
-  BASE_URL,
-} from '../services/baseUrl'
+import {BASE_URL,} from '../services/baseUrl'
 
 const DeleteDriver = ({
   navigation,

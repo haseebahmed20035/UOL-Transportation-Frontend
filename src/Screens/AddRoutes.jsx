@@ -18,7 +18,6 @@ import Geolocation from '@react-native-community/geolocation'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { BASE_URL, endPoints } from '../services/baseUrl'
 
-const GOOGLE_API_KEY = 'AIzaSyBG_tfwPfE3Bnn2-8CwNTOZuPd1c0Yr0Wc'
 Geolocation.setRNConfiguration({
   skipPermissionRequests: false,
   authorizationLevel: 'whenInUse',
@@ -48,46 +47,92 @@ const AddRoutes = ({ navigation }) => {
     return true
   }
   const moveToCurrentLocation = async () => {
-    const granted = await requestLocationPermission()
+  const granted = await requestLocationPermission()
 
-    if (!granted) {
-      Alert.alert('Permission Denied', 'Location permission is required')
-      return
-    }
-
-    Geolocation.getCurrentPosition(
-      position => {
-        console.log(position)
-
-        const { latitude, longitude } = position.coords
-
-        mapRef.current?.animateToRegion(
-          {
-            latitude,
-            longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          },
-          1000,
-        )
-      },
-      error => {
-        console.log(error)
-
-        Alert.alert(
-          'Location Error',
-          error.message || 'Unable to fetch location',
-        )
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0,
-        forceRequestLocation: true,
-        showLocationDialog: true,
-      },
-    )
+  if (!granted) {
+    Alert.alert('Permission Denied', 'Location permission is required')
+    return
   }
+
+  // 🔥 STEP 1: Get a quick, low-accuracy location instantly (network/cached)
+  Geolocation.getCurrentPosition(
+    position => {
+      const { latitude, longitude } = position.coords
+      console.log('FAST LOCATION:', latitude, longitude)
+
+      mapRef.current?.animateToRegion(
+        {
+          latitude,
+          longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        500,
+      )
+
+      // 🔥 STEP 2: Then get accurate GPS in background and refine
+      Geolocation.getCurrentPosition(
+        accuratePos => {
+          const { latitude: lat, longitude: lng } = accuratePos.coords
+          console.log('ACCURATE LOCATION:', lat, lng)
+
+          mapRef.current?.animateToRegion(
+            {
+              latitude: lat,
+              longitude: lng,
+              latitudeDelta: 0.005,
+              longitudeDelta: 0.005,
+            },
+            800,
+          )
+        },
+        err => {
+          console.log('Accurate location failed (using fast one):', err.message)
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        },
+      )
+    },
+    error => {
+      console.log('Fast location failed:', error)
+
+      // 🔥 If even fast location fails, try high-accuracy as a last resort
+      Geolocation.getCurrentPosition(
+        position => {
+          const { latitude, longitude } = position.coords
+          mapRef.current?.animateToRegion(
+            {
+              latitude,
+              longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            },
+            1000,
+          )
+        },
+        err => {
+          Alert.alert(
+            'Location Error',
+            err.message || 'Unable to fetch location',
+          )
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0,
+        },
+      )
+    },
+    {
+      enableHighAccuracy: false, // 🔥 KEY: use network-based location for speed
+      timeout: 5000,
+      maximumAge: 60000, // 🔥 accept location up to 1 minute old
+    },
+  )
+}
 
   const mapRef = useRef(null)
   const { theme } = useContext(ThemeContext)
@@ -102,60 +147,96 @@ const AddRoutes = ({ navigation }) => {
   const [loading, setLoading] = useState(false)
 
   // 🔥 MAP CLICK
-  const handleMapPress = async e => {
-    const { latitude, longitude } = e.nativeEvent.coordinate
+ const handleMapPress = async e => {
+  const { latitude, longitude } = e.nativeEvent.coordinate
+  const stopId = Date.now() + Math.random()
 
-    // 🔥 temporary instant stop
-    const tempStop = {
-      stop_name: 'Loading address...',
-      latitude,
-      longitude,
-    }
-
-    setStops(prev => [...prev, tempStop])
-
-    try {
-      const res = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}`,
-      )
-
-      const data = await res.json()
-
-      const result = data.results?.[0]
-
-      const address =
-        result?.address_components?.find(c => c.types.includes('route'))
-          ?.long_name ||
-        result?.address_components?.find(c => c.types.includes('sublocality'))
-          ?.long_name ||
-        result?.formatted_address ||
-        'Location Selected'
-
-      // 🔥 update latest stop name
-      setStops(prev => {
-        const updated = [...prev]
-
-        const index = updated.findIndex(
-          s => s.latitude === latitude && s.longitude === longitude,
-        )
-
-        if (index !== -1) {
-          updated[index].stop_name = address
-        }
-
-        return updated
-      })
-    } catch (err) {
-      console.log(err)
-    }
-
-    mapRef.current?.animateToRegion({
-      latitude,
-      longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    })
+  const tempStop = {
+    id: stopId,
+    stop_name: 'Loading address...',
+    latitude,
+    longitude,
   }
+
+  setStops(prev => [...prev, tempStop])
+
+  mapRef.current?.animateToRegion({
+    latitude,
+    longitude,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  })
+
+  const updateStopName = name => {
+    setStops(prev =>
+      prev.map(s => (s.id === stopId ? { ...s, stop_name: name } : s)),
+    )
+  }
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'UOL-Transport-App/1.0',
+          'Accept-Language': 'en',
+        },
+      },
+    )
+
+    const data = await res.json()
+    console.log('NOMINATIM RESPONSE:', JSON.stringify(data, null, 2))
+
+    const addr = data.address || {}
+
+    // 🔥 Try to extract the most meaningful name
+    const road =
+      addr.road ||
+      addr.pedestrian ||
+      addr.footway ||
+      addr.path ||
+      addr.cycleway ||
+      addr.highway
+
+    const area =
+      addr.neighbourhood ||
+      addr.suburb ||
+      addr.residential ||
+      addr.quarter ||
+      addr.city_district ||
+      addr.hamlet ||
+      addr.village
+
+    const city = addr.city || addr.town || addr.municipality || addr.county
+
+    let stopName = null
+
+    if (road && area) {
+      stopName = `${road}, ${area}`
+    } else if (road && city) {
+      stopName = `${road}, ${city}`
+    } else if (road) {
+      stopName = road
+    } else if (area && city) {
+      stopName = `${area}, ${city}`
+    } else if (area) {
+      stopName = area
+    } else if (city) {
+      stopName = city
+    } else if (data.display_name) {
+      // Fallback: first 2 parts of full address
+      stopName = data.display_name.split(',').slice(0, 2).join(',').trim()
+    } else {
+      stopName = 'Unnamed Stop'
+    }
+
+    console.log('PICKED STOP NAME:', stopName)
+    updateStopName(stopName)
+  } catch (err) {
+    console.log('NOMINATIM ERROR:', err)
+    updateStopName('Unnamed Stop')
+  }
+}
 
   // 🔥 ADD STOP
   const handleAddStop = () => {
@@ -295,7 +376,7 @@ const AddRoutes = ({ navigation }) => {
         <ScrollView contentContainerStyle={{ padding: 15 }}>
           {/* INPUTS */}
           <TextInput
-            placeholder='Route Name (e.g. UOL Morning Route)'
+            placeholder='Route Name (e.g. Johar Town Route)'
             value={routeName}
             onChangeText={setRouteName}
             style={styles.input}

@@ -10,6 +10,7 @@ import Icon from 'react-native-vector-icons/Ionicons'
 import MapView, { Marker, Polyline } from 'react-native-maps'
 import { ThemeContext } from '../context/ThemeContext'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const MyDepartureRoute = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)
@@ -26,7 +27,7 @@ const MyDepartureRoute = ({ navigation }) => {
       const studentId = await AsyncStorage.getItem('studentId')
 
       const response = await fetch(
-        `http://192.168.100.100:5000/student-departure-route/${studentId}`,
+        `${BASE_URL}/student-departure-route/${studentId}`,
       )
 
       const json = await response.json()

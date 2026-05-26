@@ -14,8 +14,7 @@ import {
 import React, { useEffect, useState } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const BASE_URL = 'http://192.168.100.100:5000';
+import { BASE_URL} from '../services/baseUrl'
 
 const complaintCategories = [
   'Bus Delay',

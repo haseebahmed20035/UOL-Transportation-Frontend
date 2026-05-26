@@ -2,13 +2,14 @@ import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { ThemeContext } from '../context/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const BusList = ({ navigation }) => {
   const [buses, setBuses] = useState([]);
   const { theme } = useContext(ThemeContext);
 
   useEffect(() => {
-    fetch('http://192.168.100.100:5000/buses')
+    fetch(`${BASE_URL}/buses`)
       .then(res => res.json())
       .then(data => setBuses(data))
       .catch(err => console.log(err));

@@ -12,8 +12,7 @@ import React, { useState, useContext, useEffect } from 'react'
 import Icon from 'react-native-vector-icons/Ionicons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ThemeContext } from '../context/ThemeContext'
-
-const BASE_URL = 'http://192.168.100.100:5000'
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const DriverMyRoute = ({ navigation }) => {
   const { theme } = useContext(ThemeContext)

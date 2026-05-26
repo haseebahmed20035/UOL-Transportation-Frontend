@@ -11,340 +11,210 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from 'react-native'
 
-import React, {
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import React, { useContext, useEffect, useState } from 'react'
 
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from 'react-native-vector-icons/Ionicons'
 
-import { ThemeContext }
-from '../context/ThemeContext';
+import { ThemeContext } from '../context/ThemeContext'
+import { BASE_URL } from '../services/baseUrl'
 
-const BASE_URL =
-  'http://192.168.100.100:5000';
+const StudentsComplaints = ({ navigation }) => {
+  const { theme } = useContext(ThemeContext)
 
-const StudentsComplaints = ({
-  navigation,
-}) => {
+  const [complaints, setComplaints] = useState([])
 
-  const { theme } =
-    useContext(ThemeContext);
+  const [loading, setLoading] = useState(false)
 
-  const [complaints, setComplaints] =
-    useState([]);
+  const [selectedComplaint, setSelectedComplaint] = useState(null)
 
-  const [loading, setLoading] =
-    useState(false);
+  const [modalVisible, setModalVisible] = useState(false)
 
-  const [selectedComplaint,
-    setSelectedComplaint] =
-      useState(null);
+  const [response, setResponse] = useState('')
 
-  const [modalVisible,
-    setModalVisible] =
-      useState(false);
+  const [selectedStatus, setSelectedStatus] = useState('in_progress')
 
-  const [response,
-    setResponse] =
-      useState('');
+  const [sending, setSending] = useState(false)
 
-  const [selectedStatus,
-    setSelectedStatus] =
-      useState('in_progress');
-
-  const [sending,
-    setSending] =
-      useState(false);
-
-  const [activeFilter,
-    setActiveFilter] =
-      useState('all');
+  const [activeFilter, setActiveFilter] = useState('all')
 
   useEffect(() => {
-    fetchComplaints();
-  }, []);
+    fetchComplaints()
+  }, [])
 
   const fetchComplaints = async () => {
-
     try {
+      setLoading(true)
 
-      setLoading(true);
+      const res = await fetch(`${BASE_URL}/all-complaints`)
 
-      const res = await fetch(
-        `${BASE_URL}/all-complaints`
-      );
+      const data = await res.json()
 
-      const data = await res.json();
-
-      setComplaints(data);
-
+      setComplaints(data)
     } catch (e) {
-
-      console.log(e);
-
+      console.log(e)
     } finally {
-
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const getStatusColor = status => {
-
     switch (status) {
-
       case 'pending':
-        return '#ff9800';
+        return '#ff9800'
 
       case 'in_progress':
-        return '#2196f3';
+        return '#2196f3'
 
       case 'resolved':
-        return '#4caf50';
+        return '#4caf50'
 
       default:
-        return 'gray';
+        return 'gray'
     }
-  };
+  }
 
   const openResponseModal = item => {
+    setSelectedComplaint(item)
 
-    setSelectedComplaint(item);
+    setResponse(item.admin_response || '')
 
-    setResponse(
-      item.admin_response || ''
-    );
+    setSelectedStatus(item.status || 'in_progress')
 
-    setSelectedStatus(
-      item.status || 'in_progress'
-    );
-
-    setModalVisible(true);
-  };
+    setModalVisible(true)
+  }
 
   const sendResponse = async () => {
-
     if (!response) {
+      Alert.alert('Error', 'Please enter response')
 
-      Alert.alert(
-        'Error',
-        'Please enter response'
-      );
-
-      return;
+      return
     }
 
     try {
+      setSending(true)
 
-      setSending(true);
+      const res = await fetch(`${BASE_URL}/respond-complaint`, {
+        method: 'POST',
 
-      const res = await fetch(
-        `${BASE_URL}/respond-complaint`,
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-
-          body: JSON.stringify({
-            complaint_id:
-              selectedComplaint.id,
-
-            response,
-
-            status: selectedStatus,
-          }),
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
 
-      const data =
-        await res.json();
+        body: JSON.stringify({
+          complaint_id: selectedComplaint.id,
+
+          response,
+
+          status: selectedStatus,
+        }),
+      })
+
+      const data = await res.json()
 
       if (data.success) {
+        Alert.alert('Success', 'Response sent successfully')
 
-        Alert.alert(
-          'Success',
-          'Response sent successfully'
-        );
+        setModalVisible(false)
 
-        setModalVisible(false);
-
-        fetchComplaints();
-
+        fetchComplaints()
       } else {
-
-        Alert.alert(
-          'Error',
-          data.message
-        );
+        Alert.alert('Error', data.message)
       }
-
     } catch (e) {
+      console.log(e)
 
-      console.log(e);
-
-      Alert.alert(
-        'Error',
-        'Network request failed'
-      );
-
+      Alert.alert('Error', 'Network request failed')
     } finally {
-
-      setSending(false);
+      setSending(false)
     }
-  };
+  }
 
   const filteredComplaints =
     activeFilter === 'all'
       ? complaints
-      : complaints.filter(
-          item =>
-            item.status === activeFilter
-        );
+      : complaints.filter(item => item.status === activeFilter)
 
-  const renderComplaint = ({
-    item,
-  }) => {
-
+  const renderComplaint = ({ item }) => {
     return (
       <View style={styles.card}>
-
         {/* TOP */}
         <View style={styles.topRow}>
-
           <View style={{ flex: 1 }}>
+            <Text style={styles.studentName}>{item.name}</Text>
 
-            <Text style={styles.studentName}>
-              {item.name}
-            </Text>
-
-            <Text style={styles.regNo}>
-              Reg#: {item.reg_no}
-            </Text>
-
+            <Text style={styles.regNo}>Reg#: {item.reg_no}</Text>
           </View>
 
           <View
             style={[
               styles.statusChip,
               {
-                backgroundColor:
-                  getStatusColor(
-                    item.status
-                  ),
+                backgroundColor: getStatusColor(item.status),
               },
-            ]}>
-
-            <Text style={styles.statusText}>
-              {item.status}
-            </Text>
-
+            ]}
+          >
+            <Text style={styles.statusText}>{item.status}</Text>
           </View>
-
         </View>
 
         {/* TITLE */}
-        <Text style={styles.title}>
-          {item.title}
-        </Text>
+        <Text style={styles.title}>{item.title}</Text>
 
         {/* CATEGORY */}
         <View style={styles.categoryRow}>
+          <Icon name='pricetag' size={16} color='#175812' />
 
-          <Icon
-            name="pricetag"
-            size={16}
-            color="#175812"
-          />
-
-          <Text style={styles.categoryText}>
-            {item.category}
-          </Text>
-
+          <Text style={styles.categoryText}>{item.category}</Text>
         </View>
 
         {/* DESCRIPTION */}
-        <Text style={styles.description}>
-          {item.description}
-        </Text>
+        <Text style={styles.description}>{item.description}</Text>
 
         {/* ADMIN RESPONSE */}
         {item.admin_response ? (
-
           <View style={styles.responseBox}>
+            <Text style={styles.responseLabel}>Admin Response</Text>
 
-            <Text style={styles.responseLabel}>
-              Admin Response
-            </Text>
-
-            <Text style={styles.responseText}>
-              {item.admin_response}
-            </Text>
-
+            <Text style={styles.responseText}>{item.admin_response}</Text>
           </View>
-
         ) : null}
 
         {/* DATE */}
         <View style={styles.dateRow}>
-
-          <Icon
-            name="time-outline"
-            size={15}
-            color="#777"
-          />
+          <Icon name='time-outline' size={15} color='#777' />
 
           <Text style={styles.dateText}>
-            {new Date(
-              item.created_at
-            ).toLocaleString()}
+            {new Date(item.created_at).toLocaleString()}
           </Text>
-
         </View>
 
         {/* BUTTON */}
         <TouchableOpacity
           style={styles.respondBtn}
-          onPress={() =>
-            openResponseModal(item)
-          }>
+          onPress={() => openResponseModal(item)}
+        >
+          <Icon name='chatbubble-ellipses' size={18} color='white' />
 
-          <Icon
-            name="chatbubble-ellipses"
-            size={18}
-            color="white"
-          />
-
-          <Text style={styles.respondBtnText}>
-            Respond Complaint
-          </Text>
-
+          <Text style={styles.respondBtnText}>Respond Complaint</Text>
         </TouchableOpacity>
-
       </View>
-    );
-  };
+    )
+  }
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor:
-            '#f5f7fb',
+          backgroundColor: '#f5f7fb',
         },
-      ]}>
-
+      ]}
+    >
       <StatusBar
-        backgroundColor={
-          theme.colors.primary
-        }
-        barStyle="light-content"
+        backgroundColor={theme.colors.primary}
+        barStyle='light-content'
       />
 
       {/* HEADER */}
@@ -352,271 +222,152 @@ const StudentsComplaints = ({
         style={[
           styles.header,
           {
-            backgroundColor:
-              theme.colors.primary,
+            backgroundColor: theme.colors.primary,
           },
-        ]}>
-
-        <TouchableOpacity
-          onPress={() =>
-            navigation.goBack()
-          }>
-
-          <Icon
-            name="arrow-back"
-            size={26}
-            color="white"
-          />
-
+        ]}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name='arrow-back' size={26} color='white' />
         </TouchableOpacity>
 
-        <Text style={styles.headerText}>
-          Students Complaints
-        </Text>
+        <Text style={styles.headerText}>Students Complaints</Text>
 
-        <TouchableOpacity
-          onPress={fetchComplaints}>
-
-          <Icon
-            name="refresh"
-            size={24}
-            color="white"
-          />
-
+        <TouchableOpacity onPress={fetchComplaints}>
+          <Icon name='refresh' size={24} color='white' />
         </TouchableOpacity>
-
       </View>
 
       {/* FILTERS */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={
-          false
-        }
-        style={styles.filterRow}>
-
-        {[
-          'all',
-          'pending',
-          'in_progress',
-          'resolved',
-        ].map(status => (
-
+      <View style={styles.filterRow}>
+        {['all', 'pending', 'in_progress', 'resolved'].map(status => (
           <TouchableOpacity
             key={status}
-            onPress={() =>
-              setActiveFilter(status)
-            }
+            onPress={() => setActiveFilter(status)}
+            activeOpacity={0.7}
             style={[
               styles.filterChip,
               activeFilter === status && {
-                backgroundColor:
-                  theme.colors.primary,
+                backgroundColor: theme.colors.primary,
               },
-            ]}>
-
+            ]}
+          >
             <Text
               style={[
                 styles.filterText,
-                activeFilter ===
-                  status && {
-                  color: 'white',
-                },
-              ]}>
-
-              {status}
-
+                activeFilter === status && { color: 'white' },
+              ]}
+              numberOfLines={1}
+            >
+              {status === 'in_progress' ? 'In Progress' : status}
             </Text>
-
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       {/* CONTENT */}
       {loading ? (
-
         <ActivityIndicator
-          size="large"
+          size='large'
           color={theme.colors.primary}
           style={{
             marginTop: 40,
           }}
         />
-
-      ) : filteredComplaints.length ===
-        0 ? (
-
+      ) : filteredComplaints.length === 0 ? (
         <View style={styles.emptyBox}>
+          <Icon name='document-text-outline' size={60} color='#999' />
 
-          <Icon
-            name="document-text-outline"
-            size={60}
-            color="#999"
-          />
-
-          <Text style={styles.emptyText}>
-            No complaints found
-          </Text>
-
+          <Text style={styles.emptyText}>No complaints found</Text>
         </View>
-
       ) : (
-
         <FlatList
           data={filteredComplaints}
-          keyExtractor={item =>
-            item.id.toString()
-          }
+          keyExtractor={item => item.id.toString()}
           renderItem={renderComplaint}
           contentContainerStyle={{
             paddingBottom: 40,
           }}
           refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={
-                fetchComplaints
-              }
-            />
+            <RefreshControl refreshing={loading} onRefresh={fetchComplaints} />
           }
         />
       )}
 
       {/* RESPONSE MODAL */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide">
-
+      <Modal visible={modalVisible} transparent animationType='slide'>
         <View style={styles.modalOverlay}>
-
           <View style={styles.modalCard}>
-
             <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Respond Complaint</Text>
 
-              <Text style={styles.modalTitle}>
-                Respond Complaint
-              </Text>
-
-              <TouchableOpacity
-                onPress={() =>
-                  setModalVisible(false)
-                }>
-
-                <Icon
-                  name="close"
-                  size={24}
-                  color="#111"
-                />
-
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Icon name='close' size={24} color='#111' />
               </TouchableOpacity>
-
             </View>
 
             {/* STATUS */}
-            <Text style={styles.modalLabel}>
-              Status
-            </Text>
+            <Text style={styles.modalLabel}>Status</Text>
 
             <View style={styles.statusRow}>
-
-              {[
-                'pending',
-                'in_progress',
-                'resolved',
-              ].map(status => (
-
+              {['pending', 'in_progress', 'resolved'].map(status => (
                 <TouchableOpacity
                   key={status}
-                  onPress={() =>
-                    setSelectedStatus(
-                      status
-                    )
-                  }
+                  onPress={() => setSelectedStatus(status)}
                   style={[
                     styles.statusOption,
-                    selectedStatus ===
-                      status && {
-                      backgroundColor:
-                        getStatusColor(
-                          status
-                        ),
+                    selectedStatus === status && {
+                      backgroundColor: getStatusColor(status),
                     },
-                  ]}>
-
+                  ]}
+                >
                   <Text
                     style={[
                       styles.statusOptionText,
-                      selectedStatus ===
-                        status && {
+                      selectedStatus === status && {
                         color: 'white',
                       },
-                    ]}>
-
+                    ]}
+                  >
                     {status}
-
                   </Text>
-
                 </TouchableOpacity>
               ))}
             </View>
 
             {/* RESPONSE */}
-            <Text style={styles.modalLabel}>
-              Response
-            </Text>
+            <Text style={styles.modalLabel}>Response</Text>
 
             <TextInput
               value={response}
               onChangeText={setResponse}
               multiline
-              placeholder="Write response..."
+              placeholder='Write response...'
               style={styles.responseInput}
-              textAlignVertical="top"
+              textAlignVertical='top'
             />
 
             {/* BTN */}
-            <TouchableOpacity
-              style={styles.sendBtn}
-              onPress={sendResponse}>
-
+            <TouchableOpacity style={styles.sendBtn} onPress={sendResponse}>
               {sending ? (
-
-                <ActivityIndicator
-                  color="white"
-                />
-
+                <ActivityIndicator color='white' />
               ) : (
-
                 <>
-                  <Icon
-                    name="send"
-                    size={18}
-                    color="white"
-                  />
+                  <Icon name='send' size={18} color='white' />
 
-                  <Text style={styles.sendBtnText}>
-                    Send Response
-                  </Text>
+                  <Text style={styles.sendBtnText}>Send Response</Text>
                 </>
               )}
-
             </TouchableOpacity>
-
           </View>
-
         </View>
-
       </Modal>
-
     </View>
-  );
-};
+  )
+}
 
-export default StudentsComplaints;
+export default StudentsComplaints
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
   },
@@ -626,8 +377,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 18,
     alignItems: 'center',
-    justifyContent:
-      'space-between',
+    justifyContent: 'space-between',
     elevation: 5,
   },
 
@@ -638,24 +388,36 @@ const styles = StyleSheet.create({
   },
 
   filterRow: {
+    flexDirection: 'row',
     paddingHorizontal: 14,
     paddingVertical: 14,
-    maxHeight: 70,
+    gap: 8,
+    backgroundColor: '#f5f7fb',
   },
 
   filterChip: {
-    paddingHorizontal: 18,
+    flex: 1,
     paddingVertical: 10,
+    paddingHorizontal: 6,
     borderRadius: 100,
     backgroundColor: '#e9edf5',
-    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
   },
 
   filterText: {
     color: '#333',
     fontWeight: '600',
-    textTransform:
-      'capitalize',
+    textTransform: 'capitalize',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+
+  filterText: {
+    color: '#333',
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
 
   card: {
@@ -692,8 +454,7 @@ const styles = StyleSheet.create({
   statusText: {
     color: 'white',
     fontWeight: 'bold',
-    textTransform:
-      'capitalize',
+    textTransform: 'capitalize',
     fontSize: 12,
   },
 
@@ -783,8 +544,7 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor:
-      'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
 
@@ -797,8 +557,7 @@ const styles = StyleSheet.create({
 
   modalHeader: {
     flexDirection: 'row',
-    justifyContent:
-      'space-between',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
 
@@ -832,8 +591,7 @@ const styles = StyleSheet.create({
   statusOptionText: {
     color: '#333',
     fontWeight: '600',
-    textTransform:
-      'capitalize',
+    textTransform: 'capitalize',
   },
 
   responseInput: {
@@ -861,4 +619,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-});
+})

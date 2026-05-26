@@ -1,4 +1,4 @@
-export const BASE_URL = `http://192.168.100.100:5000`
+export const BASE_URL = `https://uol-transportation-backend-production.up.railway.app`
 
 export const endPoints = {
   student: `student`,
@@ -7,7 +7,7 @@ export const endPoints = {
   myRoute: `my-route`,
 
   login: `auth/login`,
-  loginBaseUrl: `http://192.168.100.100:5000/api`,
+  loginBaseUrl: `${BASE_URL}/api`,
 
   addBus: `add-bus`,
   routes: `routes`,

@@ -10,6 +10,7 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ThemeContext } from '../context/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { BASE_URL} from '../services/baseUrl'
 
 const ViewRoutes = ({ navigation }) => {
   const { theme } = useContext(ThemeContext);
@@ -20,7 +21,7 @@ const ViewRoutes = ({ navigation }) => {
   // 🔥 Fetch routes
   const fetchRoutes = async () => {
     try {
-      const res = await fetch('http://192.168.100.100:5000/routes-with-stops');
+      const res = await fetch(`${BASE_URL}/routes-with-stops`);
       const data = await res.json();
       setRoutes(data);
     } catch (err) {
@@ -33,14 +34,18 @@ const ViewRoutes = ({ navigation }) => {
   }, []);
 
   // 🔥 Polyline
-  const getPolylineCoords = () => {
-    if (!selectedRoute) return [];
+const getPolylineCoords = () => {
+  if (!selectedRoute) return []
 
-    return selectedRoute.stops.map(s => ({
-      latitude: parseFloat(s.latitude),
-      longitude: parseFloat(s.longitude),
-    }));
-  };
+  const sortedStops = [...selectedRoute.stops].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0)
+  )
+
+  return sortedStops.map(s => ({
+    latitude: parseFloat(s.latitude),
+    longitude: parseFloat(s.longitude),
+  }))
+}
 
   return (
     <View

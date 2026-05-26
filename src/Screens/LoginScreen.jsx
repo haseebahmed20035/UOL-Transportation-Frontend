@@ -67,71 +67,94 @@ const LoginScreen = ({ navigation }) => {
   }
   // ================= ADMIN LOGIN =================
   const handleAdminLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('Error', 'Please enter username and password')
-      return
-    }
-
-    try {
-      setLoading(true)
-      await AsyncStorage.setItem('savedEmail', username)
-      await AsyncStorage.setItem('savedPassword', password)
-      const response = await fetch(`${endPoints.loginBaseUrl}/${endPoints.login}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: username.trim(),
-          password: password.trim(),
-        }),
-      })
-
-      const data = await response.json()
-
-      console.log('ADMIN LOGIN RESPONSE:', JSON.stringify(data, null, 2))
-
-      if (data.success) {
-        await AsyncStorage.setItem('user', JSON.stringify(data.user))
-        await registerDeviceToken(data.user.id);
-
-        if (data.user?.student_id) {
-          await AsyncStorage.setItem(
-            'studentId',
-            data.user.student_id.toString(),
-          )
-        }
-        await AsyncStorage.setItem('user', JSON.stringify(data.user))
-        await AsyncStorage.setItem('savedEmail', username)
-        await AsyncStorage.setItem('savedPassword', password)
-        const role = data.user?.role
-
-        if (role === 'admin') {
-          navigation.replace('AdminDashboard')
-        } else if (role === 'student') {
-          navigation.replace('Tabs')
-        } else if (role === 'driver') {
-          navigation.replace('DriverDashboard')
-        } else {
-          Alert.alert('Error', 'Unknown role')
-        }
-      } else {
-        Alert.alert(
-          'Login Failed',
-          getAlertMessage(data.message, 'Invalid credentials'),
-        )
-      }
-    } catch (error) {
-      console.log('ADMIN ERROR:', error)
-
-      Alert.alert(
-        'Error',
-        getAlertMessage(error?.message || error, 'Something went wrong'),
-      )
-    } finally {
-      setLoading(false)
-    }
+  if (!username.trim() || !password.trim()) {
+    Alert.alert('Error', 'Please enter username and password');
+    return;
   }
+
+  try {
+    setLoading(true);
+
+    console.time('LOGIN_TOTAL');
+    console.time('LOGIN_API');
+
+    const response = await fetch(`${endPoints.loginBaseUrl}/${endPoints.login}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: username.trim(),
+        password: password.trim(),
+      }),
+    });
+
+    console.timeEnd('LOGIN_API');
+
+    const data = await response.json();
+
+    console.log('LOGIN RESPONSE:', JSON.stringify(data, null, 2));
+
+    if (!response.ok || !data.success) {
+      Alert.alert(
+        'Login Failed',
+        getAlertMessage(data.message, 'Invalid credentials'),
+      );
+      return;
+    }
+
+    const user = data.user;
+    const role = user?.role;
+
+    console.time('ASYNC_STORAGE');
+
+    const storageItems = [
+      ['user', JSON.stringify(user)],
+      ['savedEmail', username.trim()],
+      ['savedPassword', password.trim()],
+    ];
+
+    if (user?.student_id) {
+      storageItems.push(['studentId', user.student_id.toString()]);
+    }
+
+    await AsyncStorage.multiSet(storageItems);
+
+    console.timeEnd('ASYNC_STORAGE');
+
+    // ✅ Stop loader before navigation, so UI feels fast
+    setLoading(false);
+
+    // ✅ Navigate immediately after successful login
+    if (role === 'admin') {
+      navigation.replace('AdminDashboard');
+    } else if (role === 'student') {
+      navigation.replace('Tabs');
+    } else if (role === 'driver') {
+      navigation.replace('DriverDashboard');
+    } else {
+      Alert.alert('Error', 'Unknown role');
+      return;
+    }
+
+    console.timeEnd('LOGIN_TOTAL');
+
+    // ✅ Run push token registration in background
+    registerDeviceToken(user.id).catch(error => {
+      console.log('Push token registration failed:', error);
+    });
+
+  } catch (error) {
+    console.log('LOGIN ERROR:', error);
+
+    Alert.alert(
+      'Error',
+      getAlertMessage(error?.message || error, 'Something went wrong'),
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ================= UI =================
   return (

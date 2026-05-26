@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { ThemeContext } from '../context/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { BASE_URL, endPoints } from '../services/baseUrl'
 
 const DeleteBus = ({ navigation }) => {
   const { theme } = useContext(ThemeContext);
@@ -20,7 +21,7 @@ const DeleteBus = ({ navigation }) => {
   // 🔥 Fetch buses
   const fetchBuses = async () => {
     try {
-      const res = await fetch('http://192.168.100.100:5000/buses');
+      const res = await fetch(`${BASE_URL}/buses`);
       const data = await res.json();
       setBuses(data);
     } catch (err) {

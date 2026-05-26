@@ -367,10 +367,10 @@ const AllLiveTracking = ({ navigation }) => {
     >
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name='arrow-back' size={26} color={theme.colors.icon} />
+          <Icon name='arrow-back' size={26} color={theme.colors.headerText} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerText, { color: theme.colors.text }]}>
+        <Text style={[styles.headerText, { color: theme.colors.headerText }]}>
           All Buses Tracking
         </Text>
 
@@ -378,7 +378,7 @@ const AllLiveTracking = ({ navigation }) => {
           {refreshing ? (
             <ActivityIndicator size='small' color={theme.colors.icon} />
           ) : (
-            <Icon name='refresh' size={24} color={theme.colors.icon} />
+            <Icon name='refresh' size={24} color={theme.colors.headerText} />
           )}
         </TouchableOpacity>
       </View>
@@ -423,9 +423,9 @@ const AllLiveTracking = ({ navigation }) => {
             ]}
             onPress={() => fetchRunningBuses(true)}
           >
-            <Icon name='refresh' size={18} color={theme.colors.icon} />
+            <Icon name='refresh' size={18} color={theme.colors.headerText} />
             <Text
-              style={[styles.retryButtonText, { color: theme.colors.text }]}
+              style={[styles.retryButtonText, { color: theme.colors.headerText }]}
             >
               Refresh
             </Text>
