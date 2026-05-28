@@ -56,9 +56,9 @@ import StudentVoucher from './src/Screens/StudentVoucher';
 import SendVoucher from './src/Screens/SendVoucher';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
-import messaging from '@react-native-firebase/messaging';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { setupNotifications } from './src/services/notificationSetup'
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -88,18 +88,20 @@ function BottomTabs() {
 
 const App = () => {
   useEffect(() => {
-    const unsubscribe = messaging().onMessage(async remoteMessage => {
-      console.log('🔥 FOREGROUND MESSAGE:', remoteMessage);
+  let unsubscribe: any = null
 
-      Alert.alert(
-        remoteMessage?.notification?.title || 'Notification',
+  const initNotifications = async () => {
+    unsubscribe = await setupNotifications()
+  }
 
-        remoteMessage?.notification?.body || 'New message',
-      );
-    });
+  initNotifications()
 
-    return () => unsubscribe();
-  }, []);
+  return () => {
+    if (unsubscribe) {
+      unsubscribe()
+    }
+  }
+}, [])
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaProvider>
