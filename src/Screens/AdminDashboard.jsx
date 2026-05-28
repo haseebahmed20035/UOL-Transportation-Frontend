@@ -21,15 +21,10 @@ import { BASE_URL, endPoints } from '../services/baseUrl'
 const AdminDashboard = ({ navigation }) => {
   const [stats, setStats] = useState(null)
   const { theme, reloadTheme } = useContext(ThemeContext)
-
   const [menuVisible, setMenuVisible] = useState(false)
-
   const [recentScreens, setRecentScreens] = useState([])
-
   const [searchText, setSearchText] = useState('')
-
   const [refreshing, setRefreshing] = useState(false)
-
   const fadeAnim = useRef(new Animated.Value(0)).current
 
   const loadRecent = async () => {
@@ -158,6 +153,15 @@ const AdminDashboard = ({ navigation }) => {
       color: '#3F51B5',
 
       screen: 'SendNotification',
+    },
+    {
+      title: 'Send Voucher',
+
+      icon: 'notifications',
+
+      color: '#3F51B5',
+
+      screen: 'SendVoucher',
     },
   ]
 
@@ -329,7 +333,7 @@ const AdminDashboard = ({ navigation }) => {
               <View style={styles.activeChip}>
                 <Icon name='radio-button-on' size={12} color='#4CAF50' />
 
-                <Text style={styles.activeChipText}>System Active</Text>
+                <Text style={[styles.activeChipText, {color:theme.colors.text}]}>System Active</Text>
               </View>
             </View>
 
@@ -727,7 +731,7 @@ const styles = StyleSheet.create({
   activeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0, 39, 1, 0.15)',
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
     paddingVertical: 8,

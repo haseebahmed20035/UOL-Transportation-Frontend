@@ -1,4 +1,5 @@
 import messaging from '@react-native-firebase/messaging';
+import { BASE_URL} from '../services/baseUrl'
 
 export const registerDeviceToken =
   async (userId) => {
@@ -17,7 +18,7 @@ export const registerDeviceToken =
       console.log('🔥 SAVING TOKEN');
 
       await fetch(
-        'http://192.168.100.100:5000/save-push-token',
+        `${BASE_URL}/save-push-token`,
         {
           method: 'POST',
 

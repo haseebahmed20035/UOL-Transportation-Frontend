@@ -297,11 +297,8 @@ const StudentDashboard = ({ navigation }) => {
 
     {
       title: 'Complaints',
-
       icon: 'chatbox',
-
       color: '#9C27B0',
-
       screen: 'StudentComplaint',
     },
 
@@ -321,12 +318,15 @@ const StudentDashboard = ({ navigation }) => {
 
     {
       title: 'Transport Request',
-
       icon: 'document-text',
-
       color: '#E91E63',
-
       screen: 'RequestForTransport',
+    },
+    {
+      title: 'View Fees',
+      icon: 'document-text',
+      color: '#E91E63',
+      screen: 'StudentVoucher',
     },
   ]
 

@@ -52,6 +52,8 @@ import DeleteDriver from './src/Screens/DeleteDriver';
 import DriverPersonalInfo from './src/Screens/DriverPersonalInfo';
 import StudentNotification from './src/Screens/StudentNotification';
 import DriverNotification from './src/Screens/DriverNotification';
+import StudentVoucher from './src/Screens/StudentVoucher';
+import SendVoucher from './src/Screens/SendVoucher';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider } from './src/context/ThemeContext';
 import messaging from '@react-native-firebase/messaging';
@@ -186,6 +188,8 @@ const App = () => {
               />
               <Stack.Screen name="DriverMyRoute" component={DriverMyRoute} />
               <Stack.Screen name="TripControl" component={TripControl} />
+              <Stack.Screen name="SendVoucher" component={SendVoucher} />
+              <Stack.Screen name="StudentVoucher" component={StudentVoucher} />
               <Stack.Screen
                 name="StudentNotification"
                 component={StudentNotification}
