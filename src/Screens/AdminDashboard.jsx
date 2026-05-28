@@ -156,11 +156,8 @@ const AdminDashboard = ({ navigation }) => {
     },
     {
       title: 'Send Voucher',
-
-      icon: 'notifications',
-
+      icon: 'send',
       color: '#3F51B5',
-
       screen: 'SendVoucher',
     },
   ]
@@ -219,10 +216,6 @@ const AdminDashboard = ({ navigation }) => {
           </View>
 
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.notificationBtn}>
-              <Icon name='notifications-outline' size={24} color='white' />
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.avatar} onPress={menuAnimation}>
               <Text style={styles.avatarText}>A</Text>
             </TouchableOpacity>

@@ -14,13 +14,14 @@ import {
 import React, { useState, useEffect, useRef } from 'react'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { BASE_URL, endPoints } from '../services/baseUrl'
+import { endPoints } from '../services/baseUrl'
 import { registerDeviceToken } from '../utils/registerDeviceToken'
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
   const passwordRef = useRef(null)
 
   const loadSavedCredentials = async () => {
@@ -34,6 +35,7 @@ const LoginScreen = ({ navigation }) => {
       console.log('LOAD ERROR:', err)
     }
   }
+
   useEffect(() => {
     GoogleSignin.configure({
       webClientId:
@@ -42,6 +44,7 @@ const LoginScreen = ({ navigation }) => {
 
     loadSavedCredentials()
   }, [])
+
   const getAlertMessage = (value, fallback = 'Something went wrong') => {
     if (typeof value === 'string') return value
 
@@ -64,7 +67,49 @@ const LoginScreen = ({ navigation }) => {
 
     return fallback
   }
-  // ================= ADMIN LOGIN =================
+
+  const registerPushTokenInBackground = user => {
+    const role = user?.role
+
+    if (role === 'student') {
+      const userId =
+        user?.user_id ||
+        user?.userId ||
+        user?.id
+
+      if (!userId) {
+        console.log('Student user id missing for push token')
+        return
+      }
+
+      registerDeviceToken({
+        role: 'student',
+        userId,
+      }).catch(error => {
+        console.log('Student push token registration failed:', error)
+      })
+    }
+
+    if (role === 'driver') {
+      const driverId =
+        user?.driver_id ||
+        user?.driverId ||
+        user?.id
+
+      if (!driverId) {
+        console.log('Driver id missing for push token')
+        return
+      }
+
+      registerDeviceToken({
+        role: 'driver',
+        driverId,
+      }).catch(error => {
+        console.log('Driver push token registration failed:', error)
+      })
+    }
+  }
+
   const handleAdminLogin = async () => {
     if (!username.trim() || !password.trim()) {
       Alert.alert('Error', 'Please enter username and password')
@@ -105,8 +150,13 @@ const LoginScreen = ({ navigation }) => {
         return
       }
 
-      const user = data.user
+      const user = Array.isArray(data.user) ? data.user[0] : data.user
       const role = user?.role
+
+      if (!user || !role) {
+        Alert.alert('Error', 'Invalid login response')
+        return
+      }
 
       console.time('ASYNC_STORAGE')
 
@@ -120,14 +170,19 @@ const LoginScreen = ({ navigation }) => {
         storageItems.push(['studentId', user.student_id.toString()])
       }
 
+      if (user?.driver_id || user?.driverId) {
+        storageItems.push([
+          'driverId',
+          String(user?.driver_id || user?.driverId),
+        ])
+      }
+
       await AsyncStorage.multiSet(storageItems)
 
       console.timeEnd('ASYNC_STORAGE')
 
-      // ✅ Stop loader before navigation, so UI feels fast
       setLoading(false)
 
-      // ✅ Navigate immediately after successful login
       if (role === 'admin') {
         navigation.replace('AdminDashboard')
       } else if (role === 'student') {
@@ -141,28 +196,7 @@ const LoginScreen = ({ navigation }) => {
 
       console.timeEnd('LOGIN_TOTAL')
 
-      // ✅ Run push token registration in background
-      if (role === 'student') {
-        const userId = user?.user_id || user?.userId || user?.id
-
-        registerDeviceToken({
-          role: 'student',
-          userId,
-        }).catch(error => {
-          console.log('Student push token registration failed:', error)
-        })
-      }
-
-      if (role === 'driver') {
-        const driverId = user?.driver_id || user?.driverId || user?.id
-
-        registerDeviceToken({
-          role: 'driver',
-          driverId,
-        }).catch(error => {
-          console.log('Driver push token registration failed:', error)
-        })
-      }
+      registerPushTokenInBackground(user)
     } catch (error) {
       console.log('LOGIN ERROR:', error)
 
@@ -175,7 +209,6 @@ const LoginScreen = ({ navigation }) => {
     }
   }
 
-  // ================= UI =================
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -187,22 +220,30 @@ const LoginScreen = ({ navigation }) => {
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
-        {/* TOP GREEN AREA */}
         <View style={styles.topContainer}>
-          <Image source={require('../Images/logo.png')} style={styles.logo} />
+          <Image
+            source={require('../Images/logo.png')}
+            style={styles.logo}
+          />
 
-          <Text style={styles.mainHeading}>UOL Transportation</Text>
+          <Text style={styles.mainHeading}>
+            UOL Transportation
+          </Text>
 
-          <Text style={styles.subTitle}>Smart Campus Transport System</Text>
+          <Text style={styles.subTitle}>
+            Smart Campus Transport System
+          </Text>
         </View>
 
-        {/* LOGIN CARD */}
         <View style={styles.card}>
-          <Text style={styles.welcomeText}>Welcome Back 👋</Text>
+          <Text style={styles.welcomeText}>
+            Welcome Back 👋
+          </Text>
 
-          <Text style={styles.loginText}>Login to continue your journey</Text>
+          <Text style={styles.loginText}>
+            Login to continue your journey
+          </Text>
 
-          {/* EMAIL */}
           <View style={styles.inputContainer}>
             <TextInput
               placeholder='University Email'
@@ -219,7 +260,6 @@ const LoginScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* PASSWORD */}
           <View style={styles.inputContainer}>
             <TextInput
               ref={passwordRef}
@@ -234,7 +274,6 @@ const LoginScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* LOGIN BUTTON */}
           <TouchableOpacity
             style={[styles.loginBtn, loading && { opacity: 0.8 }]}
             onPress={handleAdminLogin}
@@ -244,7 +283,9 @@ const LoginScreen = ({ navigation }) => {
             {loading ? (
               <ActivityIndicator color='white' />
             ) : (
-              <Text style={styles.loginBtnText}>Login</Text>
+              <Text style={styles.loginBtnText}>
+                Login
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -259,6 +300,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f4f7fb',
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
 
   topContainer: {
@@ -283,6 +329,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
 
   subTitle: {

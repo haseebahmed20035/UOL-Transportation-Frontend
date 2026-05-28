@@ -10,21 +10,35 @@ export const registerDeviceToken = async ({
     console.log('🔥 REQUESTING NOTIFICATION PERMISSION')
 
     await messaging().requestPermission()
+    await messaging().registerDeviceForRemoteMessages()
 
     const token = await messaging().getToken()
 
     console.log('🔥 FCM TOKEN:', token)
 
+    const finalDriverId = driverId || userId
+    const finalUserId = userId
+
+    if (role === 'driver' && !finalDriverId) {
+      console.log('🔥 DRIVER ID MISSING FOR PUSH TOKEN')
+      return null
+    }
+
+    if (role === 'student' && !finalUserId) {
+      console.log('🔥 STUDENT USER ID MISSING FOR PUSH TOKEN')
+      return null
+    }
+
     const body =
       role === 'driver'
         ? {
             role: 'driver',
-            driver_id: driverId || userId,
+            driver_id: finalDriverId,
             token,
           }
         : {
             role: 'student',
-            user_id: userId,
+            user_id: finalUserId,
             token,
           }
 

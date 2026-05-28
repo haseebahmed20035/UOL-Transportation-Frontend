@@ -1,6 +1,6 @@
 import messaging from '@react-native-firebase/messaging';
 import { BASE_URL} from '../services/baseUrl'
-
+export { registerDeviceToken } from '../utils/registerDeviceToken'
 export const registerDeviceToken =
   async (userId) => {
 

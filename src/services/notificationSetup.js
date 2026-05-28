@@ -15,6 +15,8 @@ export const setupNotifications = async () => {
     })
 
     const unsubscribe = messaging().onMessage(async remoteMessage => {
+      console.log('🔥 FOREGROUND PUSH:', remoteMessage)
+
       const title =
         remoteMessage?.notification?.title ||
         remoteMessage?.data?.title ||
@@ -23,13 +25,14 @@ export const setupNotifications = async () => {
       const body =
         remoteMessage?.notification?.body ||
         remoteMessage?.data?.body ||
-        ''
+        'You have a new notification.'
 
       await notifee.displayNotification({
         title,
         body,
         android: {
           channelId: NOTIFICATION_CHANNEL_ID,
+          importance: AndroidImportance.HIGH,
           pressAction: {
             id: 'default',
           },

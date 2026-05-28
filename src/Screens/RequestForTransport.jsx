@@ -19,6 +19,7 @@ const RequestForTransport = ({ navigation }) => {
 
   const [routes, setRoutes] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedStops, setSelectedStops] = useState({})
 
   useEffect(() => {
     fetchRoutes()
@@ -42,12 +43,15 @@ const RequestForTransport = ({ navigation }) => {
   const selectRoute = async route => {
     try {
       const studentId = await AsyncStorage.getItem('studentId')
-
-      console.log('Student ID:', studentId)
-      console.log('Route ID:', route.id)
+      const selectedStop = selectedStops[route.id]
 
       if (!studentId) {
         Alert.alert('Error', 'Student ID not found')
+        return
+      }
+
+      if (!selectedStop?.id) {
+        Alert.alert('Select Stop', 'Please select your nearest stop first.')
         return
       }
 
@@ -61,13 +65,12 @@ const RequestForTransport = ({ navigation }) => {
           body: JSON.stringify({
             student_id: Number(studentId),
             route_id: Number(route.id),
+            student_stop_id: Number(selectedStop.id),
           }),
         },
       )
 
       const json = await response.json()
-
-      console.log(json)
 
       if (!response.ok) {
         Alert.alert('Error', json.message)
@@ -75,11 +78,9 @@ const RequestForTransport = ({ navigation }) => {
       }
 
       Alert.alert('Success', json.message)
-
       navigation.goBack()
     } catch (e) {
       console.log(e)
-
       Alert.alert('Error', 'Failed to send request')
     }
   }
@@ -139,7 +140,7 @@ const RequestForTransport = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.body}
       >
-        <Text style={[styles.title,{color: theme.colors.text,},]}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>
           Available Routes
         </Text>
 
@@ -289,30 +290,49 @@ const RequestForTransport = ({ navigation }) => {
               </Text>
 
               <View style={styles.stopWrap}>
-                {route.stops?.map((stop, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.stopChip,
-                      {
-                        backgroundColor: theme.colors.option,
-                      },
-                    ]}
-                  >
-                    <Icon name='location' size={12} color={theme.colors.text} />
+                {route.stops?.map((stop, i) => {
+                  const isSelected = selectedStops[route.id]?.id === stop.id
 
-                    <Text
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        setSelectedStops(prev => ({
+                          ...prev,
+                          [route.id]: stop,
+                        }))
+                      }
                       style={[
-                        styles.stopText,
+                        styles.stopChip,
                         {
-                          color: theme.colors.text,
+                          backgroundColor: isSelected
+                            ? theme.colors.primary
+                            : theme.colors.option,
+                          borderWidth: isSelected ? 1.5 : 0,
+                          borderColor: theme.colors.primary,
                         },
                       ]}
                     >
-                      {stop.stop_name}
-                    </Text>
-                  </View>
-                ))}
+                      <Icon
+                        name={isSelected ? 'checkmark-circle' : 'location'}
+                        size={13}
+                        color={isSelected ? '#fff' : theme.colors.text}
+                      />
+
+                      <Text
+                        style={[
+                          styles.stopText,
+                          {
+                            color: isSelected ? '#fff' : theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {stop.stop_name}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
               </View>
             </View>
 
